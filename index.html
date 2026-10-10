@@ -132,6 +132,14 @@ tr:hover{background:#f8f9fc}
 .modal .form-group label{font-size:13px;color:#555;font-weight:500}
 .modal .form-group input,.modal .form-group select{padding:8px 10px;border:1px solid #ddd;border-radius:6px;font-size:14px;outline:none}
 .modal .form-group input:focus,.modal .form-group select:focus{border-color:#1a73e8}
+.rpt-sum{font-size:14px;margin-bottom:10px}
+.rpt-chip{display:inline-block;background:#fff3e0;color:#a05a00;border-radius:10px;padding:3px 9px;font-size:12px;margin:0 6px 6px 0}
+.rpt-warn{background:#fdecea;color:#c5221f;border-radius:6px;padding:8px 10px;font-size:13px;margin-bottom:8px}
+.rpt-list{max-height:260px;overflow:auto;border:1px solid #eee;border-radius:8px}
+.rpt-list table{width:100%;border-collapse:collapse;font-size:12px}
+.rpt-list th{position:sticky;top:0;background:#f7f9fc;text-align:left;padding:7px 8px;color:#666;border-bottom:1px solid #eee;white-space:nowrap}
+.rpt-list td{padding:6px 8px;border-bottom:1px solid #f4f4f4;vertical-align:top;word-break:break-all}
+.rpt-list td.addr{max-width:230px;color:#555}
 .act-edit-row{display:flex;gap:6px;align-items:center;padding:6px 0;border-bottom:1px solid #f0f0f0}
 .act-edit-row input[type=text]{flex:1;padding:5px 8px;border:1px solid #ddd;border-radius:4px;font-size:13px}
 .act-edit-row input[type=date]{padding:5px 6px;border:1px solid #ddd;border-radius:4px;font-size:12px}
@@ -496,6 +504,21 @@ iframe[id^="sb__open-sandbox"]{display:none!important}
     <div class="modal-actions">
       <button class="btn btn-gray" onclick="closeModal('timeModal')">取消</button>
       <button class="btn btn-primary" onclick="confirmTimeModal()">选择文件</button>
+    </div>
+  </div>
+</div>
+
+<!-- 导入报告：未匹配订单 -->
+<div class="modal-overlay" id="reportModal">
+  <div class="modal" style="max-width:680px">
+    <h3 data-lk="reportTitle">导入报告：有订单没匹配到门店</h3>
+    <div class="rpt-sum" id="reportSummary"></div>
+    <div id="reportReasons"></div>
+    <p class="hint" style="margin-bottom:10px" data-lk="reportHint">常见原因：门店还没导入「门店信息」页 · 收件地址被物流公司加了省市区前缀 · 手机号是店长私人号码。补充门店后点「重新匹配」。</p>
+    <div class="rpt-list" id="reportList"></div>
+    <div class="modal-actions">
+      <button class="btn btn-gray" onclick="closeModal('reportModal')">关闭</button>
+      <button class="btn btn-primary" onclick="rematchFromReport()">重新匹配</button>
     </div>
   </div>
 </div>
@@ -1413,6 +1436,7 @@ function bindOrder(o){
   applyLabels();
 }
 function switchOrder(id){
+  closeModal('reportModal');
   if(!id){renderOrderSelect();return}
   if(id!==currentOrderId){
     persistSf();
@@ -1465,6 +1489,8 @@ const LABEL_DEFS=[
   ['timeModalTitle','订单备注弹窗标题','物流订单备注'],
   ['timeModalHint','订单备注弹窗说明','填写物料订单说明，如：十一活动汇总'],
   ['orderNoteLabel','订单说明输入框标签','订单说明'],
+  ['reportTitle','导入报告弹窗标题','导入报告：有订单没匹配到门店'],
+  ['reportHint','导入报告常见原因说明','常见原因：门店还没导入「门店信息」页 · 收件地址被物流公司加了省市区前缀 · 手机号是店长私人号码。补充门店后点「重新匹配」。'],
   ['dashTitle','汇总页标题','月度活动汇总'],
   ['dashMonthLabel','「查看月份」标签','查看月份'],
   ['sumTitle','「市场活动汇总」标题','市场活动汇总'],
@@ -1717,6 +1743,7 @@ function parseSF(file,orderTime,note){
       renderMatchInfo();renderPreview();updateSelCount();
       renderOrderSelect();
       addLog('导入顺丰回单 '+sfData.length+' 条'+(skippedWH?'（已过滤 '+skippedWH+' 条非'+SF_WAREHOUSE+'仓）':'')+'（'+orderLabel(ord)+'）');
+      if(sfData.some(r=>!r.matchedStore))openMatchReport();
     }catch(err){alert('解析失败：'+err.message)}
   };
   reader.readAsArrayBuffer(file);
@@ -1744,11 +1771,52 @@ function renderMatchInfo(){
   const total=sfData.length;
   const matched=sfData.filter(r=>r.matchedStore).length;
   const withAct=sfData.filter(r=>r.activity).length;
+  const un=total-matched;
   document.getElementById('matchInfo').innerHTML=`
     <div class="item"><span class="num">${total}</span><span class="lbl">总记录</span></div>
     <div class="item ok"><span class="num">${matched}</span><span class="lbl">已匹配</span></div>
-    <div class="item warn"><span class="num">${total-matched}</span><span class="lbl">未匹配</span></div>
+    <div class="item warn" ${un?'onclick="openMatchReport()" title="点击查看未匹配报告" style="cursor:pointer"':''}><span class="num">${un}</span><span class="lbl">未匹配</span></div>
     <div class="item"><span class="num">${withAct}</span><span class="lbl">已设活动</span></div>`;
+}
+
+function matchReason(r){
+  const rA=cleanStr(r.address),rP=cleanPhone(r.phone);
+  if(!rA&&!rP)return '收件地址、手机号都为空';
+  if(rA&&!rP)return '收件地址没匹配到门店';
+  if(!rA&&rP)return '手机号没匹配到门店';
+  return '地址和手机号都没匹配到门店';
+}
+function openMatchReport(){
+  const el=document.getElementById('reportModal');
+  if(!el)return;
+  const un=sfData.filter(r=>!r.matchedStore);
+  const total=sfData.length;
+  document.getElementById('reportSummary').innerHTML=
+    '共 <b>'+total+'</b> 条，已匹配 <b style="color:#188038">'+(total-un.length)+'</b> 条，<b style="color:#c5221f">未匹配 '+un.length+'</b> 条';
+  const cnt={};
+  un.forEach(r=>{const k=matchReason(r);cnt[k]=(cnt[k]||0)+1});
+  const chips=Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a]).map(k=>`<span class="rpt-chip">${esc(k)} ${cnt[k]} 条</span>`).join('');
+  document.getElementById('reportReasons').innerHTML=
+    (DB.contacts.length?'':'<div class="rpt-warn">门店信息库还是空的，没有门店可匹配 —— 请先到「门店信息」页导入门店数据。</div>')+chips;
+  const head='<tr><th>运单号</th><th>收件人</th><th>手机号</th><th>收件地址</th><th>未匹配原因</th></tr>';
+  const rows=un.slice(0,50).map(r=>`<tr>
+      <td style="font-family:monospace;white-space:nowrap">${esc(r.tracking)}</td>
+      <td style="white-space:nowrap">${esc(r.name||'')}</td>
+      <td style="font-family:monospace;white-space:nowrap">${esc(r.phone||'')}</td>
+      <td class="addr">${esc(r.address||'（空）')}</td>
+      <td style="color:#c5221f;white-space:nowrap">${esc(matchReason(r))}</td>
+    </tr>`).join('');
+  document.getElementById('reportList').innerHTML=(un.length
+    ? `<table><thead>${head}</thead><tbody>${rows}</tbody></table>${un.length>50?'<div style="padding:6px 8px;font-size:12px;color:#999">仅显示前 50 条，还有 '+(un.length-50)+' 条</div>':''}`
+    : '<div style="padding:14px;text-align:center;color:#188038;font-size:13px">全部 '+total+' 条都匹配上了</div>');
+  el.classList.add('show');
+}
+function rematchFromReport(){
+  matchAll();persistSf();renderMatchInfo();renderPreview();updateSelCount();renderOrderSelect();
+  const un=sfData.filter(r=>!r.matchedStore).length;
+  if(un){openMatchReport();flashTip('还有 '+un+' 条未匹配',2000)}
+  else{closeModal('reportModal');flashTip('✓ '+sfData.length+' 条全部匹配成功',2200)}
+  addLog('重新匹配门店：'+(sfData.length-un)+'/'+sfData.length+' 成功');
 }
 
 // ==================== Excel式表头筛选 ====================
