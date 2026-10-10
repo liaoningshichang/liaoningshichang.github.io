@@ -584,7 +584,7 @@ iframe[id^="sb__open-sandbox"]{display:none!important}
 <div class="modal-overlay" id="reportModal">
   <div class="modal" style="width:min(776px,96vw);max-width:776px">
     <div class="rpt-sum rpt-title" id="reportSummary"></div>
-    <p class="rpt-logic" data-lk="reportLogic">匹配逻辑：地址优先 —— 收件地址与门店地址归一化后打分（完全相等=100%，包含=60%~100%，公共尾段按占比给分），≥50% 才认；几家分数接近时用手机号区分；地址实在认不出再退到手机号精确匹配；都没有才记为未匹配（原因见下表）。</p>
+    <p class="rpt-logic" data-lk="reportLogic">匹配逻辑：地址优先 —— 收件地址与门店地址归一化后打分（完全相等=100%，包含=60%~100%，公共尾段按占比给分），≥50% 才认；几家分数接近时用手机号区分；地址、手机号都不行时再看收件人姓名（只认唯一命中的那一家，多家重名不猜）；都不行才记为未匹配（原因见下表）。</p>
     <div id="reportReasons"></div>
     <div class="rpt-list" id="reportList"></div>
     <div class="modal-actions">
@@ -987,6 +987,14 @@ function normAddr(s){
   t=t.replace(ADDR_PUNCT,'');
   t=t.replace(/\d{6}(?!号)/g,'');
   return t;
+}
+// 收件人姓名归一：全角转半角 → 去空白 → 去括号备注（“张三（店长）”→“张三”）→ 去常见标点
+function normName(s){
+  let v=cleanStr(s);
+  v=v.replace(/[！-～]/g,c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0));
+  v=v.replace(/[（(【\[〔][^）)】\]）]*[）)】\]）]/g,'');
+  v=v.replace(/[，,、。.·;；:：\-—_/\\|]+/g,'');
+  return v;
 }
 function addrScore(o,s){
   if(!o||!s)return 0;
@@ -1629,7 +1637,7 @@ const LABEL_DEFS=[
   ['timeModalTitle','订单备注弹窗标题','物流订单备注'],
   ['timeModalHint','订单备注弹窗说明','填写物料订单说明，如：十一活动汇总'],
   ['orderNoteLabel','订单说明输入框标签','订单说明'],
-  ['reportLogic','导入报告·匹配逻辑说明','匹配逻辑：地址优先 —— 收件地址与门店地址归一化后打分（完全相等=100%，包含=60%~100%，公共尾段按占比给分），≥50% 才认；几家分数接近时用手机号区分；地址实在认不出再退到手机号精确匹配；都没有才记为未匹配（原因见下表）。'],
+  ['reportLogic','导入报告·匹配逻辑说明','匹配逻辑：地址优先 —— 收件地址与门店地址归一化后打分（完全相等=100%，包含=60%~100%，公共尾段按占比给分），≥50% 才认；几家分数接近时用手机号区分；地址、手机号都不行时再看收件人姓名（只认唯一命中的那一家，多家重名不猜）；都不行才记为未匹配（原因见下表）。'],
   ['dashTitle','汇总页标题','月度活动汇总'],
   ['dashMonthLabel','「按活动时间查看」按钮','按活动时间查看'],
   ['sumTitle','「市场活动汇总」标题','市场活动汇总'],
@@ -1892,11 +1900,11 @@ function parseSF(file,orderTime,note){
 }
 
 function matchAll(){
-  const list=DB.contacts.map(c=>({c,a:normAddr(c.address),p:cleanPhone(c.phone),n:normAddr(c.storeName)}));
+  const list=DB.contacts.map(c=>({c,a:normAddr(c.address),p:cleanPhone(c.phone),n:normAddr(c.storeName),rn:normName(c.recipient)}));
   for(const row of sfData){
     row.matchedStore='';
-    const rA=normAddr(row.address),rP=cleanPhone(row.phone);
-    if(!rA&&!rP)continue;
+    const rA=normAddr(row.address),rP=cleanPhone(row.phone),rN=normName(row.name);
+    if(!rA&&!rP&&!rN)continue;
     let top=0;const hits=[];
     for(const k of list){
       let s=(rA&&k.a)?addrScore(rA,k.a):0;
@@ -1912,6 +1920,12 @@ function matchAll(){
     }
     if(!pick&&rP){
       for(const k of list){if(k.p&&rP===k.p){pick={k,s:0,p:true};break}}
+    }
+    // 地址、手机号都认不出时，再用收件人姓名兜底：只认唯一命中，多家重名不猜
+    if(!pick&&rN.length>=2){
+      let n=0,namePick=null;
+      for(const k of list){if(k.rn&&k.rn===rN){n++;namePick=k}}
+      if(n===1)pick={k:namePick,s:0,p:false,nm:true};
     }
     if(pick)row.matchedStore=pick.k.c.storeName;
   }
@@ -1929,28 +1943,39 @@ function renderMatchInfo(){
     <div class="item"><span class="num">${withAct}</span><span class="lbl">已设活动</span></div>`;
 }
 
+// 收件人姓名在门店库里命中了几家（>1 就无法唯一确定）
+function nameHitCount(r){
+  const n=normName(r.name);
+  if(n.length<2)return 0;
+  let c=0;
+  for(const x of DB.contacts)if(normName(x.recipient)===n)c++;
+  return c;
+}
 function matchReason(r){
   const rA=normAddr(r.address),rP=cleanPhone(r.phone);
-  if(!rA&&!rP)return '收件地址、手机号都为空';
-  if(!rA)return rP?'手机号没匹配到门店':'收件地址、手机号都为空';
+  const nh=nameHitCount(r);
+  const note=nh>1?'；收件人「'+(r.name||'')+'」在 '+nh+' 家门店都出现，无法唯一确定':'';
+  if(!rA&&!rP)return '收件地址、手机号都为空'+note;
+  if(!rA)return (rP?'手机号没匹配到门店':'收件地址、手机号都为空')+note;
   let top=0;
   for(const c of DB.contacts){const s=addrScore(rA,normAddr(c.address));if(s>top)top=s}
-  if(top<=0)return '收件地址没匹配到门店（与任何门店都无公共尾段）';
-  if(top<ADDR_MIN)return '地址相似度不足：最高 '+Math.round(top*100)+'%（阈值 '+Math.round(ADDR_MIN*100)+'%），手机号也没匹配到';
-  return '地址和手机号都没匹配到门店';
+  if(top<=0)return '收件地址没匹配到门店（与任何门店都无公共尾段）'+note;
+  if(top<ADDR_MIN)return '地址相似度不足：最高 '+Math.round(top*100)+'%（阈值 '+Math.round(ADDR_MIN*100)+'%），手机号也没匹配到'+note;
+  return '地址和手机号都没匹配到门店'+note;
 }
 // 未匹配行给候选门店（按相似度排序，手机号命中的排前面），点一下即可采纳
 function addrSuggest(r,n){
-  const rA=normAddr(r.address),rP=cleanPhone(r.phone);
+  const rA=normAddr(r.address),rP=cleanPhone(r.phone),rN=normName(r.name);
   const out=[];
   for(const c of DB.contacts){
     const na=normAddr(c.address),nn=normAddr(c.storeName);
     let s=(rA&&na)?addrScore(rA,na):0;
     if(!s&&rA&&nn&&nn.length>=4&&rA.indexOf(nn)>=0)s=0.7;
     const ph=!!(rP&&cleanPhone(c.phone)&&rP===cleanPhone(c.phone));
-    if(s>0||ph)out.push({name:c.storeName,s,p:ph,why:ph?'手机号对上':'地址'});
+    const nh=!!(rN.length>=2&&normName(c.recipient)&&normName(c.recipient)===rN);
+    if(s>0||ph||nh)out.push({name:c.storeName,s,p:ph,n:nh,why:ph?'手机号对上':(nh?'收件人同名':'地址')});
   }
-  out.sort((a,b)=>b.s-a.s||(b.p?1:0)-(a.p?1:0)||(a.name<b.name?-1:1));
+  out.sort((a,b)=>b.s-a.s||(b.p?1:0)-(a.p?1:0)||(b.n?1:0)-(a.n?1:0)||(a.name<b.name?-1:1));
   return out.slice(0,n||3);
 }
 function rptPick(i,name){
@@ -1985,7 +2010,7 @@ function openMatchReport(){
     const chips=sug.length?sug.map(s=>{
       const pc=Math.round(s.s*100);
       const label=(pc>0?pc+'% ':'')+s.name;
-      const tip=(pc>0?'地址相似度 '+pc+'%':'地址认不出')+(s.p?'，手机号命中':'');
+      const tip=(pc>0?'地址相似度 '+pc+'%':'地址认不出')+(s.p?'，手机号命中':'')+(s.n?'，收件人同名':'');
       return `<button class="rpt-pick" data-n="${esc(s.name)}" title="${esc(tip)}（点击采用）" onclick="rptPick(${i},this.dataset.n)">${esc(label)}</button>`;
     }).join(''):'<span style="color:#999">没有接近的门店，去「门店信息」补一下地址</span>';
     return `<tr>
