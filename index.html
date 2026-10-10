@@ -2355,7 +2355,7 @@ document.addEventListener('paste',e=>{
 // ==================== 导出CSV ====================
 function exportCSV(){
   if(!sfData.length){alert('暂无数据');return}
-  const headers=['物料名称','礼品所属活动','礼品数量','快递单号','门店名称','收件人姓名','收件电话','收货地址'];
+  const headers=['物料名称','礼品所属活动','礼品数量','快递单号','门店代码','门店名称','收件人姓名','收件电话','收货地址'];
   let csv=headers.join(',')+'\n';
   const cell=v=>{
     let s=(v===undefined||v===null)?'':String(v);
@@ -2363,7 +2363,7 @@ function exportCSV(){
     return s.includes(',')||s.includes('"')||s.includes('\n')?'"'+s.replace(/"/g,'""')+'"':s;
   };
   for(const r of sfData){
-    const row={'物料名称':r.productName,'礼品所属活动':r.activity,'礼品数量':r.qty,'快递单号':r.tracking,'门店名称':r.matchedStore,'收件人姓名':r.name,'收件电话':r.phone,'收货地址':r.address};
+    const row={'物料名称':r.productName,'礼品所属活动':r.activity,'礼品数量':r.qty,'快递单号':r.tracking,'门店代码':storeCodeOf(r.matchedStore)||r.storeCode||'','门店名称':r.matchedStore,'收件人姓名':r.name,'收件电话':r.phone,'收货地址':r.address};
     csv+=headers.map(h=>cell(row[h])).join(',')+'\n';
   }
   const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});
