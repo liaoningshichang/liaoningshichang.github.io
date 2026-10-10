@@ -279,7 +279,7 @@ iframe[id^="sb__open-sandbox"]{display:none!important}
 
     <div class="drop-zone" id="dropZone" onclick="handleUploadClick(event)">
       <p id="dzTitle" data-lk="dzTitle">点击或拖拽上传顺丰回单Excel</p>
-      <p class="hint" id="dzHint" data-lk="dzHint">支持 .xlsx / .xls / .csv；上传前需先输入物流下单时间</p>
+      <p class="hint" id="dzHint" data-lk="dzHint">支持 .xlsx / .xls / .csv；上传前先填写订单说明</p>
       <input type="file" id="sfFile" accept=".xlsx,.xls,.csv" style="display:none">
     </div>
 
@@ -484,14 +484,14 @@ iframe[id^="sb__open-sandbox"]{display:none!important}
     </div>
   </div>
 </div>
-<!-- 输入下单时间弹窗 -->
+<!-- 物流订单备注弹窗 -->
 <div class="modal-overlay" id="timeModal">
   <div class="modal" style="max-width:360px">
-    <h3>输入物流下单时间</h3>
-    <p class="hint" style="margin-bottom:14px">将按此时间生成订单编码，如 261008-14:00（同一天第二单起加 a/b/c）</p>
+    <h3 data-lk="timeModalTitle">物流订单备注</h3>
+    <p class="hint" style="margin-bottom:14px" data-lk="timeModalHint">填写物料订单说明，如：十一活动汇总</p>
     <div class="form-group">
-      <label>下单时间 *</label>
-      <input id="orderTimeInput" type="datetime-local">
+      <label data-lk="orderNoteLabel">订单说明</label>
+      <input id="orderNoteInput" type="text" maxlength="40" placeholder="十一活动汇总" autocomplete="off">
     </div>
     <div class="modal-actions">
       <button class="btn btn-gray" onclick="closeModal('timeModal')">取消</button>
@@ -1362,19 +1362,29 @@ function ensureOrderCodes(){
   }
   DB.orders=orders;
 }
-function createOrder(orderTime){
+function createOrder(orderTime,note){
   const ym=(orderTime||'').slice(0,7)||currentYM();
   const o={id:uid(),name:'',code:genOrderCode(orderCodeFromTime(orderTime),DB.orders),ym:ym,createdAt:new Date().toISOString(),orderTime:orderTime||'',rows:[]};
-  o.name=o.code;
+  o.name=note?orderNameOf(orderTime,note):o.code;
   const orders=DB.orders;orders.push(o);DB.orders=orders;
   currentOrderId=o.id;saveCurrentOrderId();
   return o;
 }
-function resolveOrderForUpload(orderTime){
+function dateCN(t){
+  const m=String(t||'').slice(0,10).match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if(!m)return '';
+  return m[1].slice(2)+'年'+parseInt(m[2],10)+'月'+parseInt(m[3],10)+'日';
+}
+function orderNameOf(t,note){
+  const n=String(note||'').trim();
+  if(!n)return '';
+  return dateCN(t)+n;
+}
+function resolveOrderForUpload(orderTime,note){
   let ord=currentOrderId?findOrder(currentOrderId):null;
   if(ord&&ord.rows&&ord.rows.length)ord=null;
   if(!ord){
-    ord=createOrder(orderTime);
+    ord=createOrder(orderTime,note);
   }else{
     const orders=DB.orders;
     const t=orders.find(x=>x.id===ord.id);
@@ -1383,7 +1393,8 @@ function resolveOrderForUpload(orderTime){
       t.orderTime=orderTime||t.orderTime||'';
       t.code=genOrderCode(orderCodeFromTime(t.orderTime),orders.filter(x=>x.id!==t.id));
       t.ym=(t.orderTime||'').slice(0,7)||t.ym;
-      if(!t.name||t.name===oldCode)t.name=t.code;
+      if(note)t.name=orderNameOf(t.orderTime,note);
+      else if(!t.name||t.name===oldCode)t.name=t.code;
       DB.orders=orders;
       ord=t;
     }
@@ -1450,7 +1461,10 @@ const LABEL_DEFS=[
   ['btnApplySel','「应用到选中」按钮','应用到选中'],
   ['historyLabel','「历史物流单」标签','历史物流单'],
   ['dzTitle','上传区主文案','点击或拖拽上传顺丰回单Excel'],
-  ['dzHint','上传区提示语','支持 .xlsx / .xls / .csv；上传前需先输入物流下单时间'],
+  ['dzHint','上传区提示语','支持 .xlsx / .xls / .csv；上传前先填写订单说明'],
+  ['timeModalTitle','订单备注弹窗标题','物流订单备注'],
+  ['timeModalHint','订单备注弹窗说明','填写物料订单说明，如：十一活动汇总'],
+  ['orderNoteLabel','订单说明输入框标签','订单说明'],
   ['dashTitle','汇总页标题','月度活动汇总'],
   ['dashMonthLabel','「查看月份」标签','查看月份'],
   ['sumTitle','「市场活动汇总」标题','市场活动汇总'],
@@ -1494,23 +1508,24 @@ function applyLabels(){
 }
 let pendingFile=null;
 let lastOrderTime='';
+let pendingNote='';
+function nowLocalDT(){const d=new Date(),p=n=>String(n).padStart(2,'0');return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+'T'+p(d.getHours())+':'+p(d.getMinutes())}
 function handleUploadClick(e){
   if(e&&e.target&&e.target.id==='sfFile')return;
   openTimeModal(null)
 }
 function openTimeModal(file){
   pendingFile=file||null;
-  const inp=document.getElementById('orderTimeInput');
-  const d=new Date(),p=n=>String(n).padStart(2,'0');
-  inp.value=d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+'T'+p(d.getHours())+':'+p(d.getMinutes());
+  const inp=document.getElementById('orderNoteInput');
+  if(inp)inp.value='';
   document.getElementById('timeModal').classList.add('show');
 }
 function confirmTimeModal(){
-  const v=String(document.getElementById('orderTimeInput').value||'').trim();
-  if(!v){alert('请选择下单时间');return}
-  lastOrderTime=v;
+  const inp=document.getElementById('orderNoteInput');
+  pendingNote=inp?String(inp.value||'').trim():'';
+  lastOrderTime=nowLocalDT();
   closeModal('timeModal');
-  if(pendingFile){const f=pendingFile;pendingFile=null;parseSF(f,v)}
+  if(pendingFile){const f=pendingFile;pendingFile=null;parseSF(f,lastOrderTime,pendingNote);pendingNote=''}
   else document.getElementById('sfFile').click();
 }
 function toggleSetPop(e){
@@ -1609,9 +1624,9 @@ function renderOrderSelect(){
   if(currentOrderId&&findOrder(currentOrderId))sel.value=currentOrderId;
 }
 function orderLabel(o){
-  const code=o.code||'';
-  const nm=(o.name&&o.name!==code)?' · '+o.name:'';
-  return (code||o.name||'未命名')+nm;
+  const code=String(o.code||''),nm=String(o.name||'').trim();
+  if(nm&&nm!==code)return nm;
+  return code||nm||'未命名';
 }
 function orderOpt(o){
   return '<option value="'+o.id+'"'+(o.id===currentOrderId?' selected':'')+'>'+esc(orderLabel(o))+'（'+(o.rows||[]).length+'条）</option>';
@@ -1631,7 +1646,7 @@ dropZone.addEventListener('dragover',e=>{e.preventDefault();dropZone.classList.a
 dropZone.addEventListener('dragleave',()=>dropZone.classList.remove('dragover'));
 dropZone.addEventListener('drop',e=>{e.preventDefault();dropZone.classList.remove('dragover');if(e.dataTransfer.files[0])openTimeModal(e.dataTransfer.files[0])});
 document.getElementById('sfFile').addEventListener('click',e=>e.stopPropagation());
-document.getElementById('sfFile').addEventListener('change',function(e){if(e.target.files[0])parseSF(e.target.files[0],lastOrderTime);e.target.value=''});
+document.getElementById('sfFile').addEventListener('change',function(e){if(e.target.files[0]){parseSF(e.target.files[0],lastOrderTime,pendingNote);pendingNote=''}e.target.value=''});
 
 function detectYM(rows,ci,fallback){
   if(ci.date<0)return fallback;
@@ -1653,7 +1668,7 @@ function detectYM(rows,ci,fallback){
 }
 
 const SF_WAREHOUSE='024DCB';
-function parseSF(file,orderTime){
+function parseSF(file,orderTime,note){
   if(typeof XLSX==='undefined'){alert('Excel 解析库未加载，请联网后刷新页面重试');return}
   const reader=new FileReader();
   reader.onload=function(ev){
@@ -1690,7 +1705,7 @@ function parseSF(file,orderTime){
         alert(onlyWH&&skippedWH?('文件里 '+skippedWH+' 条记录的仓库代码都不是 '+SF_WAREHOUSE+'，未导入任何数据'):'未读取到有效数据');
         return
       }
-      const ord=resolveOrderForUpload(orderTime||lastOrderTime);
+      const ord=resolveOrderForUpload(orderTime||lastOrderTime,note||'');
       const ot=ord.orderTime||orderTime||lastOrderTime||'';
       sfYM=ot?ot.slice(0,7):detectYM(rows,ci,currentYM());
       clearPFilters();
