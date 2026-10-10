@@ -247,6 +247,13 @@ iframe[id^="sb__open-sandbox"]{display:none!important}
 #allocBody td.col-total input{background:#f8f9fa;font-weight:600;text-align:right}
 #allocBody td.err-cell input{color:#ea4335}
 #allocBody tr.added{background:#f0f7ff}
+/* 冻结前 6 列（门店代码·门店名称·收件人·收件手机·收货地址·权重）+ 行首复选框，表头竖向粘顶 */
+#allocWrap th[data-c]{position:sticky;top:0;z-index:2}
+#allocWrap th.cb-col{position:sticky;top:0;z-index:3;background:#f8f9fa}
+#allocWrap td.frozen,#allocWrap th.frozen{position:sticky;z-index:4;background:#fff}
+#allocWrap th[data-c].frozen,#allocWrap th.cb-col.frozen{z-index:6;background:#f8f9fa}
+#allocBody tr.added td.frozen{background:#f0f7ff}
+#allocWrap td.frozen[data-c="5"],#allocWrap th[data-c].frozen[data-c="5"]{box-shadow:2px 0 6px -3px rgba(60,64,67,.5)}
 .aa-radio{display:flex;flex-direction:column;gap:8px;margin-bottom:14px}
 .aa-radio label{display:flex;gap:9px;align-items:flex-start;padding:9px 11px;border:1px solid #e0e0e0;border-radius:8px;cursor:pointer;font-size:13px;transition:border .12s}
 .aa-radio label:hover{border-color:#aecbfa}
@@ -385,8 +392,6 @@ iframe[id^="sb__open-sandbox"]{display:none!important}
             <input type="date" id="dashRangeE" class="dash-date" onchange="applyDashRange()">
           </div>
           <div class="dash-pop-hint">起止日期都选好后，自动拉取该时间段内活动的门店数量；活动与所选时间有交集即计入。</div>
-          <div class="dash-pop-label dash-pop-label2">按月份查看</div>
-          <select id="dashMonth" class="filter-input" style="width:100%;padding:6px 10px;font-size:13px" onchange="applyDashMonth()"></select>
           <div class="dash-pop-actions">
             <button class="btn btn-gray btn-sm" onclick="resetDashRange()" title="退出按活动时间查看，回到默认月份">恢复默认</button>
             <button class="btn btn-primary btn-sm" onclick="closeDashPop()">完成</button>
@@ -2377,7 +2382,6 @@ function exportCSV(){
 // ==================== 月度活动汇总 ====================
 let chartArea=null;
 let dashRange=null;
-let dashMonthTouched=false;
 
 function dashRowsAll(){
   const out=[];
@@ -2419,20 +2423,18 @@ function applyDashRange(){
 }
 function resetDashRange(){
   dashRange=null;
-  dashMonthTouched=false;
   const s=document.getElementById('dashRangeS'),en=document.getElementById('dashRangeE');
   if(s)s.value='';
   if(en)en.value='';
   renderDashboard();
   closeDashPop();
 }
-function applyDashMonth(){dashMonthTouched=true;dashRange=null;renderDashboard()}
 function updateDashChip(){
   const c=document.getElementById('dashRangeChip');
   if(!c)return;
   if(dashRange){
     c.style.display='';
-    c.innerHTML='活动时间 '+esc(dashRange.s)+' ~ '+esc(dashRange.e)+'<span class="x" title="恢复按月份查看" onclick="resetDashRange()">✕</span>';
+    c.innerHTML='活动时间 '+esc(dashRange.s)+' ~ '+esc(dashRange.e)+'<span class="x" title="取消按活动时间查看" onclick="resetDashRange()">✕</span>';
   }else c.style.display='none';
 }
 document.addEventListener('click',()=>{
@@ -2447,19 +2449,9 @@ function renderDashboard(){
   const ym=currentYM();
   const orders=DB.orders;
   const monthOf=a=>{const d=a.endDate||a.startDate;return d?d.slice(0,7):''};
-  const monthSet=new Set(orders.filter(o=>o.rows&&o.rows.length&&o.ym).map(o=>o.ym));
-  monthSet.add(ym);
-  acts.forEach(a=>{
-    if(a.startDate)monthSet.add(a.startDate.slice(0,7));
-    const e=a.endDate||a.startDate;
-    if(e)monthSet.add(e.slice(0,7));
-  });
-  const months=[...monthSet].sort().reverse();
-  const selEl=document.getElementById('dashMonth');
   const curOrd=orders.find(o=>o.id===currentOrderId);
   const defYM=(curOrd&&curOrd.ym&&curOrd.rows&&curOrd.rows.length)?curOrd.ym:ym;
-  const viewYM=(dashMonthTouched&&months.includes(selEl.value))?selEl.value:defYM;
-  selEl.innerHTML=months.map(m=>`<option value="${m}"${m===viewYM?' selected':''}>${m}</option>`).join('');
+  const viewYM=defYM;
 
   const storeAreaMap={};
   const storeChannelMap={};
@@ -3082,6 +3074,7 @@ function renderAlloc(){
     else msg='没有匹配当前搜索 / 筛选的行。';
     body.innerHTML='<tr><td colspan="'+(cols.length+1)+'"><div class="empty">'+msg+'</div></td></tr>';
     document.getElementById('allocPager').innerHTML='';
+    aFreezeCols();
     return;
   }
   const ctx=aCtx();
@@ -3107,6 +3100,36 @@ function renderAlloc(){
   }else pager='<span>共'+total+'行'+(total!==aAll.length?'（全部 '+aAll.length+' 行）':'')+'</span>';
   document.getElementById('allocPager').innerHTML=pager;
   aPaintSel();
+  aFreezeCols();
+}
+// 冻结列：按实测宽度累计 left（量不到宽度时用兜底值），行首复选框 + 6 个固定列
+function aFreezeCols(){
+  const fixW=[32,92,124,76,112,196,72];
+  const head=document.getElementById('allocHead');
+  const body=document.getElementById('allocBody');
+  if(!head||!head.children.length)return;
+  const rows=body?Array.prototype.slice.call(body.querySelectorAll('tr[data-vr]')):[];
+  const first=rows[0]||null;
+  const n=Math.min(fixW.length,head.children.length);
+  const lefts=[];
+  let left=0;
+  for(let i=0;i<n;i++){
+    const th=head.children[i];
+    const td=first&&first.children[i]?first.children[i]:null;
+    const w=(td&&td.offsetWidth>0)?td.offsetWidth:((th&&th.offsetWidth>0)?th.offsetWidth:(fixW[i]||90));
+    lefts.push(left);
+    if(th){th.classList.add('frozen');th.style.left=left+'px'}
+    left+=w;
+  }
+  for(let r=0;r<rows.length;r++){
+    const tr=rows[r];
+    for(let i=0;i<n;i++){
+      const td=tr.children[i];
+      if(!td)continue;
+      td.classList.add('frozen');
+      td.style.left=lefts[i]+'px';
+    }
+  }
 }
 function aPageGo(p){aPage=p;aSel=null;renderAlloc()}
 function allocToggleAll(on){document.querySelectorAll('#allocBody .a-cb').forEach(cb=>{if(!cb.disabled)cb.checked=on})}
@@ -3628,6 +3651,9 @@ function exportAllocXlsx(){
     const el=document.getElementById(id);
     if(el)el.addEventListener('input',aaPreview);
   });
+  const aResize=debounce(()=>aFreezeCols(),150);
+  window.addEventListener('resize',aResize);
+  window.addEventListener('load',()=>aFreezeCols());
   document.addEventListener('keydown',e=>{
     if(!document.getElementById('page-alloc').classList.contains('active'))return;
     const ae=document.activeElement;
