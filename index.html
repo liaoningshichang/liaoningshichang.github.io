@@ -166,6 +166,10 @@ tr:hover{background:#f8f9fc}
 .rpt-list col.c-name{width:60px}
 .rpt-list col.c-phone{width:96px}
 .rpt-list col.c-reason{width:176px}
+.rpt-list col.c-pick{width:168px}
+.rpt-list td.pick{white-space:normal;word-break:break-word;padding:5px 8px}
+.rpt-pick{display:inline-block;margin:0 4px 3px 0;padding:2px 7px;border:1px solid #c5dafc;background:#f0f6ff;color:#1a73e8;border-radius:10px;font-size:11px;cursor:pointer;line-height:1.6;font-family:inherit}
+.rpt-pick:hover{background:#d2e3fc;border-color:#8ab4f8}
 .ctx-menu{position:fixed;z-index:130;background:#fff;border:1px solid #e3e3e3;border-radius:8px;box-shadow:0 8px 26px rgba(0,0,0,.18);padding:4px;min-width:168px;display:none;font-size:13px}
 .ctx-menu.show{display:block}
 .ctx-item{display:flex;justify-content:space-between;gap:20px;padding:7px 10px;border-radius:6px;cursor:pointer;user-select:none}
@@ -578,9 +582,9 @@ iframe[id^="sb__open-sandbox"]{display:none!important}
 
 <!-- 导入报告：未匹配订单 -->
 <div class="modal-overlay" id="reportModal">
-  <div class="modal" style="width:min(680px,96vw);max-width:680px">
+  <div class="modal" style="width:min(776px,96vw);max-width:776px">
     <div class="rpt-sum rpt-title" id="reportSummary"></div>
-    <p class="rpt-logic" data-lk="reportLogic">匹配逻辑：地址优先 —— 收件地址与门店地址归一化后打分（完全相等=100%，包含=60%~100%，公共尾段按占比给分），≥55% 才认；几家分数接近时用手机号区分；地址实在认不出再退到手机号精确匹配；都没有才记为未匹配（原因见下表）。</p>
+    <p class="rpt-logic" data-lk="reportLogic">匹配逻辑：地址优先 —— 收件地址与门店地址归一化后打分（完全相等=100%，包含=60%~100%，公共尾段按占比给分），≥50% 才认；几家分数接近时用手机号区分；地址实在认不出再退到手机号精确匹配；都没有才记为未匹配（原因见下表）。</p>
     <div id="reportReasons"></div>
     <div class="rpt-list" id="reportList"></div>
     <div class="modal-actions">
@@ -975,7 +979,7 @@ function cleanPhone(s){
   return p;
 }
 // 地址归一化 + 打分：门店地址稳定、收件手机号常变，所以匹配以地址为准
-const ADDR_MIN=0.55;
+const ADDR_MIN=0.5;
 const ADDR_PUNCT=/[()（）\[\]【】{}《》〈〉「」『』“”‘’、，,。.;;：:！!？?~`'"|\/\\_\-\u00B7\u2013\u2014\u2026…]/g;
 function normAddr(s){
   let t=cleanStr(s);
@@ -1625,7 +1629,7 @@ const LABEL_DEFS=[
   ['timeModalTitle','订单备注弹窗标题','物流订单备注'],
   ['timeModalHint','订单备注弹窗说明','填写物料订单说明，如：十一活动汇总'],
   ['orderNoteLabel','订单说明输入框标签','订单说明'],
-  ['reportLogic','导入报告·匹配逻辑说明','匹配逻辑：地址优先 —— 收件地址与门店地址归一化后打分（完全相等=100%，包含=60%~100%，公共尾段按占比给分），≥55% 才认；几家分数接近时用手机号区分；地址实在认不出再退到手机号精确匹配；都没有才记为未匹配（原因见下表）。'],
+  ['reportLogic','导入报告·匹配逻辑说明','匹配逻辑：地址优先 —— 收件地址与门店地址归一化后打分（完全相等=100%，包含=60%~100%，公共尾段按占比给分），≥50% 才认；几家分数接近时用手机号区分；地址实在认不出再退到手机号精确匹配；都没有才记为未匹配（原因见下表）。'],
   ['dashTitle','汇总页标题','月度活动汇总'],
   ['dashMonthLabel','「按活动时间查看」按钮','按活动时间查看'],
   ['sumTitle','「市场活动汇总」标题','市场活动汇总'],
@@ -1932,29 +1936,65 @@ function matchReason(r){
   let top=0;
   for(const c of DB.contacts){const s=addrScore(rA,normAddr(c.address));if(s>top)top=s}
   if(top<=0)return '收件地址没匹配到门店（与任何门店都无公共尾段）';
-  if(top<ADDR_MIN)return '地址相似度不足：最高 '+Math.round(top*100)+'%（阈值 55%），手机号也没匹配到';
+  if(top<ADDR_MIN)return '地址相似度不足：最高 '+Math.round(top*100)+'%（阈值 '+Math.round(ADDR_MIN*100)+'%），手机号也没匹配到';
   return '地址和手机号都没匹配到门店';
+}
+// 未匹配行给候选门店（按相似度排序，手机号命中的排前面），点一下即可采纳
+function addrSuggest(r,n){
+  const rA=normAddr(r.address),rP=cleanPhone(r.phone);
+  const out=[];
+  for(const c of DB.contacts){
+    const na=normAddr(c.address),nn=normAddr(c.storeName);
+    let s=(rA&&na)?addrScore(rA,na):0;
+    if(!s&&rA&&nn&&nn.length>=4&&rA.indexOf(nn)>=0)s=0.7;
+    const ph=!!(rP&&cleanPhone(c.phone)&&rP===cleanPhone(c.phone));
+    if(s>0||ph)out.push({name:c.storeName,s,p:ph,why:ph?'手机号对上':'地址'});
+  }
+  out.sort((a,b)=>b.s-a.s||(b.p?1:0)-(a.p?1:0)||(a.name<b.name?-1:1));
+  return out.slice(0,n||3);
+}
+function rptPick(i,name){
+  const r=sfData[i];
+  if(!r||r.matchedStore===name)return;
+  r.matchedStore=name;
+  persistSf();renderMatchInfo();renderPreview();updateSelCount();renderOrderSelect();renderDashboard();
+  addLog('手动指定门店：'+(r.tracking||('第'+(i+1)+'行'))+' → '+name);
+  openMatchReport();
+  flashTip('✓ 已指定「'+name+'」',1600);
 }
 function openMatchReport(){
   const el=document.getElementById('reportModal');
   if(!el)return;
-  const un=sfData.filter(r=>!r.matchedStore);
+  const un=[];
+  for(let i=0;i<sfData.length;i++)if(!sfData[i].matchedStore)un.push({r:sfData[i],i});
   const total=sfData.length;
   document.getElementById('reportSummary').innerHTML=
     '共 <b>'+total+'</b> 条，已匹配 <b style="color:#188038">'+(total-un.length)+'</b> 条，<b style="color:#c5221f">未匹配 '+un.length+'</b> 条';
-  document.getElementById('reportReasons').innerHTML=
-    DB.contacts.length?'':'<div class="rpt-warn">门店信息库还是空的，没有门店可匹配 —— 请先到「门店信息」页导入门店数据。</div>';
-  const colg='<colgroup><col class="c-track"><col class="c-name"><col class="c-phone"><col><col class="c-reason"></colgroup>';
-  const head='<thead><tr><th>运单号</th><th>收件人</th><th>手机号</th><th>收件地址（点击展开）</th><th>未匹配原因</th></tr></thead>';
-  const rows=un.slice(0,50).map(r=>{
+  const noAddr=DB.contacts.filter(c=>!normAddr(c.address)).length;
+  const warns=[];
+  if(!DB.contacts.length)warns.push('<div class="rpt-warn">门店信息库还是空的，没有门店可匹配 —— 请先到「门店信息」页导入门店数据。</div>');
+  else if(noAddr)warns.push('<div class="rpt-warn">门店库 <b>'+DB.contacts.length+'</b> 家里有 <b>'+noAddr+'</b> 家没填收货地址，这些店只能靠手机号匹配，手机号一变就会漏 —— 建议去「门店信息」补地址。</div>');
+  document.getElementById('reportReasons').innerHTML=warns.join('');
+  const colg='<colgroup><col class="c-track"><col class="c-name"><col class="c-phone"><col><col class="c-reason"><col class="c-pick"></colgroup>';
+  const head='<thead><tr><th>运单号</th><th>收件人</th><th>手机号</th><th>收件地址（点击展开）</th><th>未匹配原因</th><th>最接近的门店（点一下即采用）</th></tr></thead>';
+  const rows=un.slice(0,50).map(x=>{
+    const r=x.r,i=x.i;
     const reason=matchReason(r);
     const addr=r.address||'（空）';
+    const sug=addrSuggest(r,3);
+    const chips=sug.length?sug.map(s=>{
+      const pc=Math.round(s.s*100);
+      const label=(pc>0?pc+'% ':'')+s.name;
+      const tip=(pc>0?'地址相似度 '+pc+'%':'地址认不出')+(s.p?'，手机号命中':'');
+      return `<button class="rpt-pick" data-n="${esc(s.name)}" title="${esc(tip)}（点击采用）" onclick="rptPick(${i},this.dataset.n)">${esc(label)}</button>`;
+    }).join(''):'<span style="color:#999">没有接近的门店，去「门店信息」补一下地址</span>';
     return `<tr>
       <td style="font-family:monospace;white-space:nowrap" title="${esc(r.tracking)}">${esc(r.tracking)}</td>
       <td style="white-space:nowrap" title="${esc(r.name||'')}">${esc(r.name||'')}</td>
       <td style="font-family:monospace;white-space:nowrap" title="${esc(r.phone||'')}">${esc(r.phone||'')}</td>
       <td class="addr" onclick="toggleRptAddr(this)" title="点击展开 / 收起完整地址"><span class="addr-t">${esc(addr)}</span><span class="addr-x">展开</span></td>
       <td style="color:#c5221f;white-space:nowrap" title="${esc(reason)}">${esc(reason)}</td>
+      <td class="pick">${chips}</td>
     </tr>`;
   }).join('');
   document.getElementById('reportList').innerHTML=(un.length
@@ -3044,7 +3084,8 @@ function delMat(i){
   DB.materials=mats;
   aAll.forEach(r=>{if(r.cells)delete r.cells['m:'+m.id]});
   aColsCache=null;aCtxCache=null;
-  renderAlloc();aSave();
+  aSave();
+  renderAlloc();
   addLog('删除物料「'+(m.name||'')+'」');
 }
 function aSave(){DB.alloc=aAll}
