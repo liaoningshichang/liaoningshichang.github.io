@@ -39,7 +39,7 @@ td{padding:0;border-bottom:1px solid #f0f0f0;white-space:nowrap}
 .chart-box h4 .legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:4px;vertical-align:-1px}
 #contactWrap table{width:max-content;min-width:100%}
 #contactWrap td,#contactWrap th{padding:0}
-#previewHead th[data-col]{cursor:pointer;user-select:none;position:relative;padding-right:20px}
+#previewHead th[data-col]{cursor:pointer;user-select:none;position:sticky;top:0;z-index:2;padding-right:20px}
 #previewHead th[data-col]:hover{background:#e8f0fe}
 #previewHead th[data-col] .fmark{position:absolute;right:6px;top:50%;transform:translateY(-50%);font-size:9px;color:#bbb;font-style:normal}
 #previewHead th[data-col] .fmark::before{content:'▾'}
@@ -580,7 +580,7 @@ iframe[id^="sb__open-sandbox"]{display:none!important}
 <div class="modal-overlay" id="reportModal">
   <div class="modal" style="width:min(680px,96vw);max-width:680px">
     <div class="rpt-sum rpt-title" id="reportSummary"></div>
-    <p class="rpt-logic" data-lk="reportLogic">匹配逻辑：先用收件地址与门店地址模糊匹配，未命中再用收件手机号精确匹配；两者都没命中才记为未匹配（原因见下表）。</p>
+    <p class="rpt-logic" data-lk="reportLogic">匹配逻辑：地址优先 —— 收件地址与门店地址归一化后打分（完全相等=100%，包含=60%~100%，公共尾段按占比给分），≥55% 才认；几家分数接近时用手机号区分；地址实在认不出再退到手机号精确匹配；都没有才记为未匹配（原因见下表）。</p>
     <div id="reportReasons"></div>
     <div class="rpt-list" id="reportList"></div>
     <div class="modal-actions">
@@ -968,7 +968,36 @@ function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2
 function addLog(msg){const l=DB.logs;l.unshift({msg,time:new Date().toLocaleString('zh-CN')});if(l.length>50)l.length=50;DB.logs=l;}
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
 function cleanStr(s){return String(s||'').replace(/[\u0000-\u001f\u007f-\u009f\u200b\u200c\u200d\u200e\u200f\u202a-\u202e\u2060-\u2064\u2066-\u2069\ufeff\u00ad\u180e]/g,'').replace(/\s+/g,'').trim()}
-function cleanPhone(s){return String(s||'').replace(/\D/g,'')}
+function cleanPhone(s){
+  let p=String(s||'').replace(/\D/g,'');
+  if(p.length===13&&p.slice(0,2)==='86')p=p.slice(2);
+  else if(p.length===14&&p.slice(0,3)==='086')p=p.slice(3);
+  return p;
+}
+// 地址归一化 + 打分：门店地址稳定、收件手机号常变，所以匹配以地址为准
+const ADDR_MIN=0.55;
+const ADDR_PUNCT=/[()（）\[\]【】{}《》〈〉「」『』“”‘’、，,。.;;：:！!？?~`'"|\/\\_\-\u00B7\u2013\u2014\u2026…]/g;
+function normAddr(s){
+  let t=cleanStr(s);
+  t=t.replace(/[！-～]/g,c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0));
+  t=t.replace(ADDR_PUNCT,'');
+  t=t.replace(/\d{6}(?!号)/g,'');
+  return t;
+}
+function addrScore(o,s){
+  if(!o||!s)return 0;
+  if(o===s)return o.length>=6?1:0;
+  const a=o.length<=s.length?o:s,b=o.length<=s.length?s:o;
+  if(a.length<8)return 0;
+  if(b.indexOf(a)>=0)return 0.6+0.4*(a.length/b.length);
+  const maxk=Math.min(a.length,b.length);
+  if(maxk<6)return 0;
+  let best=0;
+  for(let k=maxk;k>=6;k--){if(b.indexOf(a.slice(a.length-k))>=0){best=k;break}}
+  if(best<6)for(let k=maxk;k>=6;k--){if(a.indexOf(b.slice(b.length-k))>=0){best=k;break}}
+  if(!best)return 0;
+  return best/maxk;
+}
 function debounce(fn,ms){let t;return(...a)=>{clearTimeout(t);t=setTimeout(()=>fn(...a),ms)}}
 
 function switchTab(name){
@@ -1596,7 +1625,7 @@ const LABEL_DEFS=[
   ['timeModalTitle','订单备注弹窗标题','物流订单备注'],
   ['timeModalHint','订单备注弹窗说明','填写物料订单说明，如：十一活动汇总'],
   ['orderNoteLabel','订单说明输入框标签','订单说明'],
-  ['reportLogic','导入报告·匹配逻辑说明','匹配逻辑：先用收件地址与门店地址模糊匹配，未命中再用收件手机号精确匹配；两者都没命中才记为未匹配（原因见下表）。'],
+  ['reportLogic','导入报告·匹配逻辑说明','匹配逻辑：地址优先 —— 收件地址与门店地址归一化后打分（完全相等=100%，包含=60%~100%，公共尾段按占比给分），≥55% 才认；几家分数接近时用手机号区分；地址实在认不出再退到手机号精确匹配；都没有才记为未匹配（原因见下表）。'],
   ['dashTitle','汇总页标题','月度活动汇总'],
   ['dashMonthLabel','「按活动时间查看」按钮','按活动时间查看'],
   ['sumTitle','「市场活动汇总」标题','市场活动汇总'],
@@ -1859,20 +1888,28 @@ function parseSF(file,orderTime,note){
 }
 
 function matchAll(){
-  const prepared=DB.contacts.map(c=>({c,a:cleanStr(c.address),p:cleanPhone(c.phone)}));
+  const list=DB.contacts.map(c=>({c,a:normAddr(c.address),p:cleanPhone(c.phone),n:normAddr(c.storeName)}));
   for(const row of sfData){
     row.matchedStore='';
-    const rA=cleanStr(row.address),rP=cleanPhone(row.phone);
+    const rA=normAddr(row.address),rP=cleanPhone(row.phone);
     if(!rA&&!rP)continue;
-    let best=null;
-    for(const k of prepared){
-      const pOk=!rP||!k.p||rP===k.p;
-      const aOk=rA&&k.a&&(rA.includes(k.a)||k.a.includes(rA));
-      if(pOk&&aOk){best=k.c;break}
+    let top=0;const hits=[];
+    for(const k of list){
+      let s=(rA&&k.a)?addrScore(rA,k.a):0;
+      if(!s&&rA&&k.n&&k.n.length>=4&&rA.indexOf(k.n)>=0)s=0.7;
+      if(s<=0)continue;
+      if(s>top)top=s;
+      hits.push({k,s,p:!!(rP&&k.p&&rP===k.p)});
     }
-    if(!best&&rA){for(const k of prepared){if(k.a&&rA.includes(k.a)){best=k.c;break}}}
-    if(!best&&rP){for(const k of prepared){if(k.p&&rP===k.p){best=k.c;break}}}
-    if(best)row.matchedStore=best.storeName;
+    let pick=null;
+    if(top>=ADDR_MIN){
+      const near=hits.filter(x=>x.s>=top-0.03);
+      pick=near.find(x=>x.p)||near[0];
+    }
+    if(!pick&&rP){
+      for(const k of list){if(k.p&&rP===k.p){pick={k,s:0,p:true};break}}
+    }
+    if(pick)row.matchedStore=pick.k.c.storeName;
   }
 }
 
@@ -1889,10 +1926,13 @@ function renderMatchInfo(){
 }
 
 function matchReason(r){
-  const rA=cleanStr(r.address),rP=cleanPhone(r.phone);
+  const rA=normAddr(r.address),rP=cleanPhone(r.phone);
   if(!rA&&!rP)return '收件地址、手机号都为空';
-  if(rA&&!rP)return '收件地址没匹配到门店';
-  if(!rA&&rP)return '手机号没匹配到门店';
+  if(!rA)return rP?'手机号没匹配到门店':'收件地址、手机号都为空';
+  let top=0;
+  for(const c of DB.contacts){const s=addrScore(rA,normAddr(c.address));if(s>top)top=s}
+  if(top<=0)return '收件地址没匹配到门店（与任何门店都无公共尾段）';
+  if(top<ADDR_MIN)return '地址相似度不足：最高 '+Math.round(top*100)+'%（阈值 55%），手机号也没匹配到';
   return '地址和手机号都没匹配到门店';
 }
 function openMatchReport(){
