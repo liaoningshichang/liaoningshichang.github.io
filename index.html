@@ -98,6 +98,20 @@ tr:hover{background:#f8f9fc}
 .chart-box{background:#fff;border-radius:10px;padding:18px;box-shadow:0 1px 3px rgba(0,0,0,.07)}
 .chart-box h4{font-size:14px;color:#333;margin-bottom:12px;font-weight:600}
 .chart-box canvas{max-height:300px}
+.dash-anchor{position:relative}
+.dash-pop{position:absolute;right:0;top:calc(100% + 6px);z-index:70;width:268px;background:#fff;border:1px solid #e3e3e3;border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.18);padding:12px;display:none;text-align:left}
+.dash-pop.show{display:block}
+.dash-pop-label{font-size:12px;color:#333;font-weight:600;margin-bottom:6px}
+.dash-pop-label2{margin-top:12px}
+.dash-pop-dates{display:flex;align-items:center;gap:6px}
+.dash-pop-dates .dash-date{flex:1;min-width:0;padding:6px 6px;border:1px solid #ddd;border-radius:6px;font-size:12px;outline:none;background:#fff}
+.dash-pop-dates .dash-date:focus{border-color:#1a73e8}
+.dash-pop-sep{color:#999;font-size:12px;white-space:nowrap}
+.dash-pop-hint{font-size:11px;color:#999;line-height:1.6;margin-top:7px}
+.dash-pop-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:12px}
+.dash-chip{display:inline-flex;align-items:center;gap:6px;background:#e8f0fe;color:#1a73e8;border-radius:12px;padding:4px 10px;font-size:12px;margin-right:8px;white-space:nowrap}
+.dash-chip .x{cursor:pointer;font-weight:700;padding:0 2px;color:#5f6368}
+.dash-chip .x:hover{color:#c5221f}
 .cross-table{background:#fff;border-radius:10px;padding:18px;box-shadow:0 1px 3px rgba(0,0,0,.07);overflow:auto;margin-bottom:16px}
 .cross-table h4{font-size:14px;color:#333;margin-bottom:12px;font-weight:600}
 .cross-table h4 .tmark{display:inline-block;width:4px;height:11px;border-radius:2px;margin-right:4px;vertical-align:-1px}
@@ -133,13 +147,32 @@ tr:hover{background:#f8f9fc}
 .modal .form-group input,.modal .form-group select{padding:8px 10px;border:1px solid #ddd;border-radius:6px;font-size:14px;outline:none}
 .modal .form-group input:focus,.modal .form-group select:focus{border-color:#1a73e8}
 .rpt-sum{font-size:14px;margin-bottom:10px}
+.rpt-sum.rpt-title{font-size:17px;font-weight:700;color:#1a73e8;margin-bottom:8px;line-height:1.5}
+.rpt-sum.rpt-title b{font-size:19px}
+.rpt-logic{font-size:13px;color:#555;line-height:1.6;background:#f7f9fc;border-left:3px solid #1a73e8;border-radius:0 6px 6px 0;padding:7px 10px;margin:0 0 10px}
 .rpt-chip{display:inline-block;background:#fff3e0;color:#a05a00;border-radius:10px;padding:3px 9px;font-size:12px;margin:0 6px 6px 0}
 .rpt-warn{background:#fdecea;color:#c5221f;border-radius:6px;padding:8px 10px;font-size:13px;margin-bottom:8px}
-.rpt-list{max-height:260px;overflow:auto;border:1px solid #eee;border-radius:8px}
-.rpt-list table{width:100%;border-collapse:collapse;font-size:12px}
-.rpt-list th{position:sticky;top:0;background:#f7f9fc;text-align:left;padding:7px 8px;color:#666;border-bottom:1px solid #eee;white-space:nowrap}
-.rpt-list td{padding:6px 8px;border-bottom:1px solid #f4f4f4;vertical-align:top;word-break:break-all}
-.rpt-list td.addr{max-width:230px;color:#555}
+.rpt-list{max-height:300px;overflow:auto;border:1px solid #eee;border-radius:8px}
+.rpt-list table{width:100%;min-width:560px;border-collapse:collapse;table-layout:fixed;font-size:12px}
+.rpt-list th{position:sticky;top:0;background:#f7f9fc;text-align:left;padding:7px 8px;color:#666;border-bottom:1px solid #eee;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rpt-list td{padding:6px 8px;border-bottom:1px solid #f4f4f4;vertical-align:top;word-break:break-all;overflow:hidden;text-overflow:ellipsis}
+.rpt-list td.addr{color:#555;cursor:pointer;position:relative;white-space:nowrap;padding-right:46px;background:#fcfcfd}
+.rpt-list td.addr:hover{background:#f2f6fe}
+.rpt-list td.addr .addr-t{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rpt-list td.addr .addr-x{position:absolute;right:5px;top:6px;font-size:11px;color:#1a73e8;background:#e8f0fe;border-radius:4px;padding:1px 5px;white-space:nowrap}
+.rpt-list td.addr.open{white-space:normal;background:#fff}
+.rpt-list td.addr.open .addr-t{white-space:normal;word-break:break-all;overflow:visible;text-overflow:clip}
+.rpt-list col.c-track{width:96px}
+.rpt-list col.c-name{width:60px}
+.rpt-list col.c-phone{width:96px}
+.rpt-list col.c-reason{width:176px}
+.ctx-menu{position:fixed;z-index:130;background:#fff;border:1px solid #e3e3e3;border-radius:8px;box-shadow:0 8px 26px rgba(0,0,0,.18);padding:4px;min-width:168px;display:none;font-size:13px}
+.ctx-menu.show{display:block}
+.ctx-item{display:flex;justify-content:space-between;gap:20px;padding:7px 10px;border-radius:6px;cursor:pointer;user-select:none}
+.ctx-item:hover{background:#e8f0fe;color:#1a73e8}
+.ctx-item.danger:hover{background:#fdecea;color:#c5221f}
+.ctx-key{color:#9aa0a6;font-size:12px}
+.ctx-sep{height:1px;background:#eee;margin:4px 6px}
 .act-edit-row{display:flex;gap:6px;align-items:center;padding:6px 0;border-bottom:1px solid #f0f0f0}
 .act-edit-row input[type=text]{flex:1;padding:5px 8px;border:1px solid #ddd;border-radius:4px;font-size:13px}
 .act-edit-row input[type=date]{padding:5px 6px;border:1px solid #ddd;border-radius:4px;font-size:12px}
@@ -301,6 +334,10 @@ iframe[id^="sb__open-sandbox"]{display:none!important}
         <label data-lk="batchActLabel">批量设活动：</label>
         <select class="filter-select" id="batchActSelect"></select>
         <button class="btn btn-primary btn-sm" data-lk="btnApplySel" onclick="batchApplyActivity()">应用到选中</button>
+        <span style="color:#ddd">|</span>
+        <label data-lk="batchMatLabel">批量设物料：</label>
+        <select class="filter-select" id="batchMatSelect"></select>
+        <button class="btn btn-primary btn-sm" data-lk="btnApplyMat" onclick="batchApplyMaterial()">应用到选中</button>
         <span id="selCount" style="font-size:12px;color:#1a73e8"></span>
       </div>
 
@@ -324,6 +361,7 @@ iframe[id^="sb__open-sandbox"]{display:none!important}
         </table>
       </div>
       <datalist id="storeOpts"></datalist>
+      <datalist id="matOpts"></datalist>
 
       <div class="toolbar">
         <button class="btn btn-gray" data-lk="btnClearOrder" onclick="clearImport()">清空当前单数据</button>
@@ -336,8 +374,25 @@ iframe[id^="sb__open-sandbox"]{display:none!important}
   <div class="page" id="page-dashboard">
     <div class="toolbar">
       <h3 style="margin-right:auto;font-size:15px" data-lk="dashTitle">月度活动汇总</h3>
-      <span style="font-size:13px;color:#666" data-lk="dashMonthLabel">查看月份</span>
-      <select id="dashMonth" class="filter-input" style="width:auto;padding:6px 12px;font-size:13px" onchange="renderDashboard()"></select>
+      <span class="dash-chip" id="dashRangeChip" style="display:none"></span>
+      <div class="dash-anchor">
+        <button class="btn btn-gray btn-sm" id="dashRangeBtn" data-lk="dashMonthLabel" onclick="toggleDashPop(event)">按活动时间查看</button>
+        <div class="dash-pop" id="dashPop" onclick="event.stopPropagation()">
+          <div class="dash-pop-label">按活动时间查看</div>
+          <div class="dash-pop-dates">
+            <input type="date" id="dashRangeS" class="dash-date" onchange="applyDashRange()">
+            <span class="dash-pop-sep">至</span>
+            <input type="date" id="dashRangeE" class="dash-date" onchange="applyDashRange()">
+          </div>
+          <div class="dash-pop-hint">起止日期都选好后，自动拉取该时间段内活动的门店数量；活动与所选时间有交集即计入。</div>
+          <div class="dash-pop-label dash-pop-label2">按月份查看</div>
+          <select id="dashMonth" class="filter-input" style="width:100%;padding:6px 10px;font-size:13px" onchange="applyDashMonth()"></select>
+          <div class="dash-pop-actions">
+            <button class="btn btn-gray btn-sm" onclick="resetDashRange()" title="退出按活动时间查看，回到默认月份">恢复默认</button>
+            <button class="btn btn-primary btn-sm" onclick="closeDashPop()">完成</button>
+          </div>
+        </div>
+      </div>
     </div>
     <div class="stats-grid" id="statsGrid"></div>
 
@@ -508,13 +563,20 @@ iframe[id^="sb__open-sandbox"]{display:none!important}
   </div>
 </div>
 
+<!-- 预览表右键菜单 -->
+<div class="ctx-menu" id="pvCtx">
+  <div class="ctx-item" onclick="pvCopy()"><span>复制</span><span class="ctx-key">Ctrl+C</span></div>
+  <div class="ctx-item" onclick="pvPaste()"><span>粘贴</span><span class="ctx-key">Ctrl+V</span></div>
+  <div class="ctx-sep"></div>
+  <div class="ctx-item danger" onclick="pvDelete()"><span>删除</span><span class="ctx-key">Del</span></div>
+</div>
+
 <!-- 导入报告：未匹配订单 -->
 <div class="modal-overlay" id="reportModal">
-  <div class="modal" style="max-width:680px">
-    <h3 data-lk="reportTitle">导入报告：有订单没匹配到门店</h3>
-    <div class="rpt-sum" id="reportSummary"></div>
+  <div class="modal" style="width:min(680px,96vw);max-width:680px">
+    <div class="rpt-sum rpt-title" id="reportSummary"></div>
+    <p class="rpt-logic" data-lk="reportLogic">匹配逻辑：先用收件地址与门店地址模糊匹配，未命中再用收件手机号精确匹配；两者都没命中才记为未匹配（原因见下表）。</p>
     <div id="reportReasons"></div>
-    <p class="hint" style="margin-bottom:10px" data-lk="reportHint">常见原因：门店还没导入「门店信息」页 · 收件地址被物流公司加了省市区前缀 · 手机号是店长私人号码。补充门店后点「重新匹配」。</p>
     <div class="rpt-list" id="reportList"></div>
     <div class="modal-actions">
       <button class="btn btn-gray" onclick="closeModal('reportModal')">关闭</button>
@@ -1323,13 +1385,49 @@ function batchApplyActivity(){
   if(!actName){alert('请先选择活动');return}
   const checked=[...document.querySelectorAll('.p-cb:checked')];
   if(!checked.length){alert('请先勾选要应用的行');return}
+  const idx=[];
   checked.forEach(cb=>{
     const i=parseInt(cb.dataset.i);
-    if(sfData[i])sfData[i].activity=actName;
+    if(sfData[i]){sfData[i].activity=actName;idx.push(i)}
   });
   addLog('批量设置活动「'+actName+'」到 '+checked.length+' 条');
   persistSf();
-  renderPreview();updateSelCount();renderOrderSelect();
+  renderOrderSelect();
+  renderDashboard();
+  pvRender(idx);
+}
+
+function matNamePool(){
+  const out=[];
+  const add=v=>{const s=String(v==null?'':v).trim();if(s&&out.indexOf(s)<0)out.push(s)};
+  try{(DB.materials||[]).forEach(m=>add(m.name))}catch(e){}
+  (sfData||[]).forEach(r=>add(r.productName));
+  return out;
+}
+function renderMatOpts(){
+  const el=document.getElementById('matOpts');
+  if(el)el.innerHTML=matNamePool().map(n=>`<option value="${esc(n)}"></option>`).join('');
+}
+function refreshBatchMatSelect(){
+  const sel=document.getElementById('batchMatSelect');
+  if(!sel)return;
+  const prev=sel.value;
+  sel.innerHTML='<option value="">-- 选择物料 --</option>'+matNamePool().map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('');
+  if(prev&&[...sel.options].some(o=>o.value===prev))sel.value=prev;
+}
+function batchApplyMaterial(){
+  const v=document.getElementById('batchMatSelect').value;
+  if(!v){alert('请先选择物料名称');return}
+  const checked=[...document.querySelectorAll('.p-cb:checked')];
+  if(!checked.length){alert('请先勾选要应用的行');return}
+  const idx=[];
+  checked.forEach(cb=>{const i=parseInt(cb.dataset.i);if(sfData[i]){sfData[i].productName=v;idx.push(i)}});
+  addLog('批量设置物料「'+v+'」到 '+checked.length+' 条');
+  persistSf();
+  renderOrderSelect();
+  refreshBatchMatSelect();
+  pvRender(idx);
+  flashTip('✓ '+checked.length+' 行物料已改为「'+v+'」',1800);
 }
 
 function toggleCheckAll(checked){
@@ -1339,6 +1437,8 @@ function toggleCheckAll(checked){
 function updateSelCount(){
   const n=document.querySelectorAll('.p-cb:checked').length;
   document.getElementById('selCount').textContent=n?`已选 ${n} 条`:'';
+  const ca=document.getElementById('checkAll2');
+  if(ca){const all=document.querySelectorAll('.p-cb').length;ca.checked=all>0&&n===all}
 }
 
 // ==================== 物流管理 ====================
@@ -1432,7 +1532,7 @@ function bindOrder(o){
   const has=sfData.length>0;
   document.getElementById('importResult').style.display=has?'block':'none';
   document.getElementById('batchRow').style.display=has?'flex':'none';
-  if(has)refreshBatchActSelect();
+  if(has){refreshBatchActSelect();refreshBatchMatSelect()}
   applyLabels();
 }
 function switchOrder(id){
@@ -1483,21 +1583,23 @@ const LABEL_DEFS=[
   ['btnClearOrder','「清空当前单数据」按钮','清空当前单数据'],
   ['batchActLabel','「批量设活动」标签','批量设活动：'],
   ['btnApplySel','「应用到选中」按钮','应用到选中'],
+  ['batchMatLabel','「批量设物料」标签','批量设物料：'],
+  ['btnApplyMat','「物料·应用到选中」按钮','应用到选中'],
   ['historyLabel','「历史物流单」标签','历史物流单'],
   ['dzTitle','上传区主文案','点击或拖拽上传顺丰回单Excel'],
   ['dzHint','上传区提示语','支持 .xlsx / .xls / .csv；上传前先填写订单说明'],
   ['timeModalTitle','订单备注弹窗标题','物流订单备注'],
   ['timeModalHint','订单备注弹窗说明','填写物料订单说明，如：十一活动汇总'],
   ['orderNoteLabel','订单说明输入框标签','订单说明'],
-  ['reportTitle','导入报告弹窗标题','导入报告：有订单没匹配到门店'],
-  ['reportHint','导入报告常见原因说明','常见原因：门店还没导入「门店信息」页 · 收件地址被物流公司加了省市区前缀 · 手机号是店长私人号码。补充门店后点「重新匹配」。'],
+  ['reportLogic','导入报告·匹配逻辑说明','匹配逻辑：先用收件地址与门店地址模糊匹配，未命中再用收件手机号精确匹配；两者都没命中才记为未匹配（原因见下表）。'],
   ['dashTitle','汇总页标题','月度活动汇总'],
-  ['dashMonthLabel','「查看月份」标签','查看月份'],
+  ['dashMonthLabel','「按活动时间查看」按钮','按活动时间查看'],
   ['sumTitle','「市场活动汇总」标题','市场活动汇总'],
   ['areaChartTitle','门店数图标题','各小区/区域门店数'],
   ['crossTitle','区域计数表标题','区域活动计数'],
   ['statAuth','「授权活动门店」指标名','授权活动门店'],
   ['statMijia','「米家活动门店」指标名','米家活动门店'],
+  ['statActRange','「区间活动场次」指标名','区间活动场次'],
   ['btnAddRow','「新增行」按钮','+ 新增行'],
   ['btnDelSel','「删除选中」按钮','删除选中'],
   ['btnExportContacts','门店页「导出」按钮','导出'],
@@ -1740,8 +1842,10 @@ function parseSF(file,orderTime,note){
       document.getElementById('importResult').style.display='block';
       document.getElementById('batchRow').style.display='flex';
       refreshBatchActSelect();
+      refreshBatchMatSelect();
       renderMatchInfo();renderPreview();updateSelCount();
       renderOrderSelect();
+      renderDashboard();
       addLog('导入顺丰回单 '+sfData.length+' 条'+(skippedWH?'（已过滤 '+skippedWH+' 条非'+SF_WAREHOUSE+'仓）':'')+'（'+orderLabel(ord)+'）');
       if(sfData.some(r=>!r.matchedStore))openMatchReport();
     }catch(err){alert('解析失败：'+err.message)}
@@ -1793,26 +1897,33 @@ function openMatchReport(){
   const total=sfData.length;
   document.getElementById('reportSummary').innerHTML=
     '共 <b>'+total+'</b> 条，已匹配 <b style="color:#188038">'+(total-un.length)+'</b> 条，<b style="color:#c5221f">未匹配 '+un.length+'</b> 条';
-  const cnt={};
-  un.forEach(r=>{const k=matchReason(r);cnt[k]=(cnt[k]||0)+1});
-  const chips=Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a]).map(k=>`<span class="rpt-chip">${esc(k)} ${cnt[k]} 条</span>`).join('');
   document.getElementById('reportReasons').innerHTML=
-    (DB.contacts.length?'':'<div class="rpt-warn">门店信息库还是空的，没有门店可匹配 —— 请先到「门店信息」页导入门店数据。</div>')+chips;
-  const head='<tr><th>运单号</th><th>收件人</th><th>手机号</th><th>收件地址</th><th>未匹配原因</th></tr>';
-  const rows=un.slice(0,50).map(r=>`<tr>
-      <td style="font-family:monospace;white-space:nowrap">${esc(r.tracking)}</td>
-      <td style="white-space:nowrap">${esc(r.name||'')}</td>
-      <td style="font-family:monospace;white-space:nowrap">${esc(r.phone||'')}</td>
-      <td class="addr">${esc(r.address||'（空）')}</td>
-      <td style="color:#c5221f;white-space:nowrap">${esc(matchReason(r))}</td>
-    </tr>`).join('');
+    DB.contacts.length?'':'<div class="rpt-warn">门店信息库还是空的，没有门店可匹配 —— 请先到「门店信息」页导入门店数据。</div>';
+  const colg='<colgroup><col class="c-track"><col class="c-name"><col class="c-phone"><col><col class="c-reason"></colgroup>';
+  const head='<thead><tr><th>运单号</th><th>收件人</th><th>手机号</th><th>收件地址（点击展开）</th><th>未匹配原因</th></tr></thead>';
+  const rows=un.slice(0,50).map(r=>{
+    const reason=matchReason(r);
+    const addr=r.address||'（空）';
+    return `<tr>
+      <td style="font-family:monospace;white-space:nowrap" title="${esc(r.tracking)}">${esc(r.tracking)}</td>
+      <td style="white-space:nowrap" title="${esc(r.name||'')}">${esc(r.name||'')}</td>
+      <td style="font-family:monospace;white-space:nowrap" title="${esc(r.phone||'')}">${esc(r.phone||'')}</td>
+      <td class="addr" onclick="toggleRptAddr(this)" title="点击展开 / 收起完整地址"><span class="addr-t">${esc(addr)}</span><span class="addr-x">展开</span></td>
+      <td style="color:#c5221f;white-space:nowrap" title="${esc(reason)}">${esc(reason)}</td>
+    </tr>`;
+  }).join('');
   document.getElementById('reportList').innerHTML=(un.length
-    ? `<table><thead>${head}</thead><tbody>${rows}</tbody></table>${un.length>50?'<div style="padding:6px 8px;font-size:12px;color:#999">仅显示前 50 条，还有 '+(un.length-50)+' 条</div>':''}`
+    ? `<table>${colg}${head}<tbody>${rows}</tbody></table>${un.length>50?'<div style="padding:6px 8px;font-size:12px;color:#999">仅显示前 50 条，还有 '+(un.length-50)+' 条</div>':''}`
     : '<div style="padding:14px;text-align:center;color:#188038;font-size:13px">全部 '+total+' 条都匹配上了</div>');
   el.classList.add('show');
 }
+function toggleRptAddr(td){
+  const open=td.classList.toggle('open');
+  const x=td.querySelector('.addr-x');
+  if(x)x.textContent=open?'收起':'展开';
+}
 function rematchFromReport(){
-  matchAll();persistSf();renderMatchInfo();renderPreview();updateSelCount();renderOrderSelect();
+  matchAll();persistSf();renderMatchInfo();renderPreview();updateSelCount();renderOrderSelect();renderDashboard();
   const un=sfData.filter(r=>!r.matchedStore).length;
   if(un){openMatchReport();flashTip('还有 '+un+' 条未匹配',2000)}
   else{closeModal('reportModal');flashTip('✓ '+sfData.length+' 条全部匹配成功',2200)}
@@ -1931,6 +2042,7 @@ function renderPreview(){
   const body=document.getElementById('previewBody');
   const acts=DB.activities;
   renderStoreOpts();
+  renderMatOpts();
   const orphanActs=[...new Set(sfData.map(r=>r.activity).filter(Boolean))].filter(n=>!acts.some(a=>a.name===n));
   const allActs=[...acts,...orphanActs.map(n=>({name:n}))];
   const actOpts='<option value="">-- 选择 --</option>'+allActs.map(a=>`<option value="${esc(a.name)}"${orphanActs.includes(a.name)?' style="color:#f9ab00"':''}>${esc(a.name)}${orphanActs.includes(a.name)?'（已删除）':''}</option>`).join('');
@@ -1951,7 +2063,7 @@ function renderPreview(){
     return `<tr data-i="${i}">
       <td class="cb-col"><input type="checkbox" class="p-cb" data-i="${i}" onchange="updateSelCount()"></td>
       <td style="font-family:monospace;font-size:11px;white-space:nowrap">${esc(r.tracking)}</td>
-      <td><input data-f="productName" data-i="${i}" value="${esc(r.productName)}" style="font-size:12px;padding:5px 6px;width:${wP}px"></td>
+      <td><input data-f="productName" data-i="${i}" list="matOpts" value="${esc(r.productName)}" placeholder="物料名称" style="font-size:12px;padding:5px 6px;width:${wP}px"></td>
       <td style="text-align:center">${r.qty}</td>
       <td>${esc(r.name)}</td>
       <td style="font-size:11px">${esc(r.phone)}</td>
@@ -2004,6 +2116,7 @@ document.getElementById('previewBody').addEventListener('change',function(e){
   }
   persistSf();
   if(f==='activity')renderOrderSelect();
+  if(f==='activity'||f==='matchedStore')renderDashboard();
 });
 
 function handlePreviewClick(){}
@@ -2015,8 +2128,229 @@ function clearImport(){
   document.getElementById('importResult').style.display='none';
   document.getElementById('batchRow').style.display='none';
   renderMatchInfo();renderPreview();updateSelCount();renderOrderSelect();
+  renderDashboard();
   addLog('清空物流订单数据');
 }
+
+// ==================== 预览表：右键菜单 / 复制粘贴 / 删除 ====================
+const PV_COLS=[['tracking','运单号'],['productName','物料名称'],['qty','数量'],['name','收方姓名'],['phone','收方手机'],['matchedStore','匹配门店'],['activity','礼品所属活动']];
+
+function pvSelected(){
+  const out=[];
+  document.querySelectorAll('#previewBody .p-cb:checked').forEach(cb=>{
+    const i=parseInt(cb.dataset.i);
+    if(sfData[i])out.push(i);
+  });
+  return out.sort((a,b)=>a-b);
+}
+function pvHeaderLine(){return PV_COLS.map(c=>c[1]).join('\t')}
+function pvLine(r){
+  return PV_COLS.map(c=>{
+    const v=r[c[0]];
+    if(c[0]==='qty')return String(v==null||v===''?0:v);
+    return String(v==null?'':v);
+  }).join('\t');
+}
+function pvRender(keepSel){
+  renderPreview();
+  if(keepSel&&keepSel.length){
+    keepSel.forEach(i=>{
+      const cb=document.querySelector('#previewBody .p-cb[data-i="'+i+'"]');
+      if(cb)cb.checked=true;
+    });
+  }
+  updateSelCount();
+}
+function pvAfterChange(keepSel){
+  const has=sfData.length>0;
+  document.getElementById('importResult').style.display=has?'block':'none';
+  document.getElementById('batchRow').style.display=has?'flex':'none';
+  renderMatchInfo();
+  pvRender(keepSel||[]);
+  renderOrderSelect();
+  renderDashboard();
+  if(has){refreshBatchActSelect();refreshBatchMatSelect()}
+}
+function pvCopy(){
+  const idx=pvSelected();
+  if(!idx.length){flashTip('请先勾选要复制的行',1800);return}
+  const text=[pvHeaderLine()].concat(idx.map(i=>pvLine(sfData[i]))).join('\n');
+  const done=()=>flashTip('✓ 已复制 '+idx.length+' 行（含表头），可直接粘到 Excel / 飞书',2600);
+  if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(text).then(done).catch(()=>cCopyFallback(text,done));
+  else cCopyFallback(text,done);
+}
+function pvDelete(){
+  const idx=pvSelected();
+  if(!idx.length){flashTip('请先勾选要删除的行',1800);return}
+  if(!confirm('删除选中的 '+idx.length+' 条记录？'))return;
+  const drop=new Set(idx);
+  sfData=sfData.filter((_,i)=>!drop.has(i));
+  persistSf();
+  pvAfterChange();
+  addLog('删除 '+idx.length+' 条物流记录');
+  flashTip('已删除 '+idx.length+' 条',1800);
+}
+const PV_HEADS={
+  tracking:['运单号','快递单号','物流单号','快递单号'],
+  productName:['物料名称','礼品名称','物料'],
+  qty:['数量','礼品数量','礼品件数','物料数量'],
+  name:['收方姓名','收件人姓名','收件人','收货人','姓名'],
+  phone:['收方手机','收件电话','收货电话','收件人手机','手机号','手机','电话'],
+  matchedStore:['匹配门店','门店名称','门店'],
+  activity:['礼品所属活动','所属活动','活动'],
+  address:['收货地址','收件地址','地址']
+};
+function pvHeadMap(head){
+  const map=PV_COLS.map(c=>{
+    const aliases=(PV_HEADS[c[0]]||[]).concat([c[1]]);
+    for(let k=0;k<aliases.length;k++){
+      const i=head.indexOf(aliases[k]);
+      if(i>=0)return i;
+    }
+    return -1;
+  });
+  if(map.filter(x=>x>=0).length>=3)return map;
+  if(head[0]==='运单号')return PV_COLS.map((c,i)=>i);
+  if(head.length===1&&PV_COLS.some(c=>c[1]===head[0]))return [0];
+  return null;
+}
+function pvParseRows(text){
+  const lines=String(text||'').replace(/^\uFEFF/,'').replace(/\r\n?/g,'\n').split('\n').filter(l=>l.trim()!=='');
+  if(!lines.length)return {rows:[],map:null,head:[]};
+  const sep=lines[0].indexOf('\t')>=0?'\t':',';
+  const rows=lines.map(l=>l.split(sep));
+  const head=rows[0].map(s=>String(s==null?'':s).trim());
+  const map=pvHeadMap(head);
+  return {rows:map?rows.slice(1):rows,map:map,head:head};
+}
+function pvPasteText(text){
+  const g=pvParseRows(text);
+  const rows=g.rows,map=g.map,head=g.head;
+  if(!rows.length){flashTip('剪贴板里没有可用的数据行',1800);return}
+  const maxC=Math.max.apply(null,rows.map(r=>r.length));
+  const sel=pvSelected();
+  const val=(r,ci)=>{
+    const src=map?(map[ci]==null?-1:map[ci]):ci;
+    if(src<0||src>=r.length)return null;
+    const v=r[src];
+    return v==null?'':String(v).trim();
+  };
+  let addrIdx=-1;
+  for(let k=0;k<PV_HEADS.address.length;k++){const i=head.indexOf(PV_HEADS.address[k]);if(i>=0){addrIdx=i;break}}
+  const addrOf=r=>map&&addrIdx>=0&&addrIdx<r.length?String(r[addrIdx]==null?'':r[addrIdx]).trim():null;
+  if(maxC===1){
+    if(sel.length!==rows.length){flashTip('单列粘贴需先勾选 '+rows.length+' 行（按物料名称填充），或粘贴带表头的完整表格',3200);return}
+    rows.forEach((r,k)=>{sfData[sel[k]].productName=val(r,0)||''});
+    addLog('粘贴填充物料名称 '+rows.length+' 行');
+    persistSf();pvAfterChange(sel);
+    flashTip('✓ 已给 '+rows.length+' 行填充物料名称',1800);
+    return;
+  }
+  if(sel.length&&sel.length===rows.length){
+    rows.forEach((r,k)=>{
+      const t=sfData[sel[k]];
+      PV_COLS.forEach((c,ci)=>{
+        const v=val(r,ci);
+        if(v==null)return;
+        if(c[0]==='qty'){if(v==='')return;const n=parseFloat(v);if(!isNaN(n))t.qty=n}
+        else if(c[0]==='tracking'&&!v)return;
+        else t[c[0]]=v;
+      });
+      const a=addrOf(r);
+      if(a)t.address=a;
+    });
+    addLog('粘贴覆盖选中的 '+rows.length+' 行');
+    persistSf();pvAfterChange(sel);
+    flashTip('✓ 已覆盖选中的 '+rows.length+' 行',1800);
+    return;
+  }
+  let n=0;
+  rows.forEach(r=>{
+    const tracking=val(r,0)||'';
+    const product=val(r,1)||'';
+    if(!tracking&&!product)return;
+    const q=parseFloat(val(r,2)||'');
+    sfData.push({
+      tracking:tracking,
+      name:val(r,3)||'',
+      phone:val(r,4)||'',
+      address:addrOf(r)||'',
+      productCode:'',
+      productName:product,
+      qty:isNaN(q)?0:q,
+      matchedStore:val(r,5)||'',
+      activity:val(r,6)||''
+    });
+    n++;
+  });
+  if(!n){flashTip('粘贴内容里没有可用的行',1800);return}
+  addLog('粘贴新增 '+n+' 条物流记录');
+  persistSf();
+  pvAfterChange();
+  flashTip('✓ 已追加 '+n+' 行',2000);
+}
+async function pvPaste(){
+  let text='';
+  try{
+    if(navigator.clipboard&&navigator.clipboard.readText)text=await navigator.clipboard.readText();
+  }catch(e){}
+  if(!text){flashTip('读不到剪贴板，请在表格空白处直接按 Ctrl+V / ⌘V',2800);return}
+  pvPasteText(text);
+}
+function pvShowCtx(x,y){
+  const m=document.getElementById('pvCtx');
+  if(!m)return;
+  m.classList.add('show');
+  const r=m.getBoundingClientRect();
+  m.style.left=Math.max(4,Math.min(x,window.innerWidth-r.width-8))+'px';
+  m.style.top=Math.max(4,Math.min(y,window.innerHeight-r.height-8))+'px';
+}
+function pvHideCtx(){const m=document.getElementById('pvCtx');if(m)m.classList.remove('show')}
+(function pvBind(){
+  const body=document.getElementById('previewBody');
+  if(!body)return;
+  body.addEventListener('contextmenu',e=>{
+    const tr=e.target&&e.target.closest?e.target.closest('tr'):null;
+    if(!tr||!tr.querySelector('.p-cb')){pvHideCtx();return}
+    e.preventDefault();
+    const cb=tr.querySelector('.p-cb');
+    if(!cb.checked){
+      document.querySelectorAll('#previewBody .p-cb').forEach(x=>{x.checked=false});
+      cb.checked=true;
+      updateSelCount();
+    }
+    pvShowCtx(e.clientX,e.clientY);
+  });
+  document.addEventListener('click',pvHideCtx);
+  window.addEventListener('scroll',pvHideCtx,true);
+})();
+
+document.addEventListener('keydown',e=>{
+  if(!document.getElementById('page-import').classList.contains('active'))return;
+  const ae=document.activeElement;
+  const k=(e.key||'').toLowerCase();
+  if(k==='escape'){pvHideCtx();return}
+  const inField=ae&&ae.tagName==='INPUT'&&ae.closest&&ae.closest('#previewBody');
+  if((e.ctrlKey||e.metaKey)&&k==='c'){
+    if(inField){
+      try{if(ae.type!=='checkbox'&&ae.selectionStart!==ae.selectionEnd)return}catch(err){}
+    }
+    e.preventDefault();pvCopy();return;
+  }
+  if(k==='delete'){
+    if(ae&&(/^(select|textarea)$/i.test(ae.tagName)||(ae.tagName==='INPUT'&&ae.type!=='checkbox')))return;
+    e.preventDefault();pvDelete();
+  }
+});
+document.addEventListener('paste',e=>{
+  if(!document.getElementById('page-import').classList.contains('active'))return;
+  const ae=document.activeElement;
+  if(ae&&/^(input|select|textarea)$/i.test(ae.tagName))return;
+  const text=(e.clipboardData||window.clipboardData).getData('text');
+  if(!text)return;
+  e.preventDefault();
+  pvPasteText(text);
+});
 
 // ==================== 导出CSV ====================
 function exportCSV(){
@@ -2042,6 +2376,69 @@ function exportCSV(){
 
 // ==================== 月度活动汇总 ====================
 let chartArea=null;
+let dashRange=null;
+let dashMonthTouched=false;
+
+function dashRowsAll(){
+  const out=[];
+  const orders=DB.orders||[];
+  let hasCurrent=false;
+  for(const o of orders){
+    if(o.id===currentOrderId){hasCurrent=true;out.push.apply(out,sfData||[])}
+    else out.push.apply(out,o.rows||[]);
+  }
+  if(!hasCurrent&&sfData&&sfData.length)out.push.apply(out,sfData);
+  return out;
+}
+function toggleDashPop(e){
+  if(e&&e.stopPropagation)e.stopPropagation();
+  const p=document.getElementById('dashPop');
+  if(!p)return;
+  const on=!p.classList.contains('show');
+  p.classList.toggle('show',on);
+  if(on){
+    const s=document.getElementById('dashRangeS'),en=document.getElementById('dashRangeE');
+    if(dashRange){s.value=dashRange.s;en.value=dashRange.e}
+    else if(!s.value||!en.value){
+      const now=new Date();
+      const last=new Date(now.getFullYear(),now.getMonth()+1,0).getDate();
+      s.value=currentYM()+'-01';
+      en.value=currentYM()+'-'+String(last).padStart(2,'0');
+    }
+  }
+}
+function closeDashPop(){const p=document.getElementById('dashPop');if(p)p.classList.remove('show')}
+function applyDashRange(){
+  const sEl=document.getElementById('dashRangeS'),eEl=document.getElementById('dashRangeE');
+  const s=sEl?sEl.value:'',e=eEl?eEl.value:'';
+  if(!s||!e){flashTip('起始和结束日期都要选好',1800);return}
+  if(s>e){flashTip('起始日期不能晚于结束日期',1800);return}
+  dashRange={s:s,e:e};
+  renderDashboard();
+  addLog('区域活动概览按活动时间查看：'+s+' ~ '+e);
+}
+function resetDashRange(){
+  dashRange=null;
+  dashMonthTouched=false;
+  const s=document.getElementById('dashRangeS'),en=document.getElementById('dashRangeE');
+  if(s)s.value='';
+  if(en)en.value='';
+  renderDashboard();
+  closeDashPop();
+}
+function applyDashMonth(){dashMonthTouched=true;dashRange=null;renderDashboard()}
+function updateDashChip(){
+  const c=document.getElementById('dashRangeChip');
+  if(!c)return;
+  if(dashRange){
+    c.style.display='';
+    c.innerHTML='活动时间 '+esc(dashRange.s)+' ~ '+esc(dashRange.e)+'<span class="x" title="恢复按月份查看" onclick="resetDashRange()">✕</span>';
+  }else c.style.display='none';
+}
+document.addEventListener('click',()=>{
+  const p=document.getElementById('dashPop');
+  if(p)p.classList.remove('show');
+});
 
 function renderDashboard(){
   const contacts=DB.contacts;
@@ -2059,23 +2456,37 @@ function renderDashboard(){
   });
   const months=[...monthSet].sort().reverse();
   const selEl=document.getElementById('dashMonth');
-  const viewYM=months.includes(selEl.value)?selEl.value:ym;
+  const curOrd=orders.find(o=>o.id===currentOrderId);
+  const defYM=(curOrd&&curOrd.ym&&curOrd.rows&&curOrd.rows.length)?curOrd.ym:ym;
+  const viewYM=(dashMonthTouched&&months.includes(selEl.value))?selEl.value:defYM;
   selEl.innerHTML=months.map(m=>`<option value="${m}"${m===viewYM?' selected':''}>${m}</option>`).join('');
-
-  const matched=[];
-  for(const o of orders){
-    if(o.ym!==viewYM)continue;
-    const rows=o.id===currentOrderId?sfData:(o.rows||[]);
-    matched.push(...rows);
-  }
-
-  const withAct=matched.filter(r=>r.activity&&r.matchedStore);
 
   const storeAreaMap={};
   const storeChannelMap={};
   for(const c of contacts){storeAreaMap[c.storeName]=c.area||'';storeChannelMap[c.storeName]=c.channel||''}
 
-  const monthActs=acts.filter(a=>monthOf(a)===viewYM);
+  let matched=[],withAct=[],viewActs=[],orphans=[],actLbl='',actCount=0;
+  if(dashRange){
+    const s=dashRange.s,e=dashRange.e;
+    viewActs=acts.filter(a=>a.startDate&&a.startDate<=e&&(a.endDate||a.startDate)>=s);
+    const names=new Set(viewActs.map(a=>a.name));
+    matched=dashRowsAll().filter(r=>r.activity&&names.has(r.activity));
+    withAct=matched.filter(r=>r.activity&&r.matchedStore);
+    actLbl='区间活动场次';
+    actCount=viewActs.length;
+  }else{
+    for(const o of orders){
+      if(o.ym!==viewYM)continue;
+      const rows=o.id===currentOrderId?sfData:(o.rows||[]);
+      matched.push(...rows);
+    }
+    withAct=matched.filter(r=>r.activity&&r.matchedStore);
+    const dataActs=[...new Set(matched.map(r=>r.activity).filter(Boolean))];
+    orphans=dataActs.filter(n=>!acts.some(a=>a.name===n));
+    viewActs=[...acts.filter(a=>monthOf(a)===viewYM||dataActs.includes(a.name)),...orphans.map(n=>({name:n,startDate:'',endDate:''}))];
+    actLbl=viewYM===ym?'本月活动场次':parseInt(viewYM.slice(5),10)+'月活动场次';
+    actCount=acts.filter(a=>monthOf(a)===viewYM).length;
+  }
 
   const uniqStores=new Set(withAct.map(r=>r.matchedStore));
   let authCount=0,mijiaCount=0;
@@ -2090,9 +2501,8 @@ function renderDashboard(){
     }
   }
 
-  const actLbl=viewYM===ym?'本月活动场次':parseInt(viewYM.slice(5),10)+'月活动场次';
   document.getElementById('statsGrid').innerHTML=`
-    <div class="stat-card"><div class="num">${monthActs.length}</div><div class="lbl">${actLbl}</div></div>
+    <div class="stat-card"><div class="num">${actCount}</div><div class="lbl"${dashRange?' data-lk="statActRange"':''}>${esc(actLbl)}</div></div>
     <div class="stat-card o"><div class="num">${authCount}</div><div class="lbl" data-lk="statAuth">授权活动门店</div></div>
     <div class="stat-card g"><div class="num">${mijiaCount}</div><div class="lbl" data-lk="statMijia">米家活动门店</div></div>`;
   applyLabels();
@@ -2105,9 +2515,6 @@ function renderDashboard(){
     actStoreMap[r.activity].add(r.matchedStore);
     actSessionMap[r.activity]=(actSessionMap[r.activity]||0)+1;
   }
-  const dataActs=[...new Set(matched.map(r=>r.activity).filter(Boolean))];
-  const orphans=dataActs.filter(n=>!acts.some(a=>a.name===n));
-  const viewActs=[...acts.filter(a=>monthOf(a)===viewYM||dataActs.includes(a.name)),...orphans.map(n=>({name:n,startDate:'',endDate:''}))];
   const actNames=viewActs.map(a=>a.name);
 
   // 市场活动汇总表
@@ -2168,6 +2575,7 @@ function renderDashboard(){
   }
   html+='</tbody></table>';
   document.getElementById('crossTableBody').innerHTML=html;
+  updateDashChip();
 }
 
 // ==================== 概览 ====================
@@ -2182,6 +2590,7 @@ function renderLogs(){
 function refreshAll(){
   renderContacts();renderDashboard();renderLogs();renderAlloc();
   refreshBatchActSelect();
+  refreshBatchMatSelect();
   if(typeof sfData!=='undefined'&&sfData.length)renderPreview();
 }
 
