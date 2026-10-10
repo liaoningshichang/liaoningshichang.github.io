@@ -142,6 +142,15 @@ tr:hover{background:#f8f9fc}
 .modal{background:#fff;border-radius:12px;padding:24px;width:540px;max-height:85vh;overflow-y:auto;box-shadow:0 8px 30px rgba(0,0,0,.2)}
 .modal h3{font-size:17px;margin-bottom:18px;color:#1a73e8}
 .modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
+/* 上传后：按物料设置所属活动 */
+.mat-act-list{max-height:46vh;overflow:auto;border:1px solid #eee;border-radius:8px;padding:0 10px}
+.mat-act-row{display:grid;grid-template-columns:1.1fr 1.5fr .95fr .95fr;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid #f4f4f4}
+.mat-act-row:last-child{border-bottom:none}
+.mat-act-row.head{font-size:12px;color:#666;font-weight:600;position:sticky;top:0;background:#fff;z-index:1;border-bottom:1px solid #e8eaed}
+.mat-act-row input{box-sizing:border-box;width:100%;font-size:12px;padding:6px 7px;border:1px solid #dadce0;border-radius:6px;background:#fff;font-family:inherit}
+.mat-act-row input:focus{border-color:#1a73e8;outline:none;box-shadow:0 0 0 2px rgba(26,115,232,.15)}
+.ma-name{font-size:12.5px;font-weight:500;word-break:break-all}
+.ma-name .new{display:inline-block;margin-left:5px;font-size:10.5px;color:#188038;background:#e6f4ea;border-radius:8px;padding:1px 6px;white-space:nowrap}
 .modal .form-group{display:flex;flex-direction:column;gap:4px;margin-bottom:12px}
 .modal .form-group label{font-size:13px;color:#555;font-weight:500}
 .modal .form-group input,.modal .form-group select{padding:8px 10px;border:1px solid #ddd;border-radius:6px;font-size:14px;outline:none}
@@ -568,6 +577,20 @@ iframe[id^="sb__open-sandbox"]{display:none!important}
     <div class="modal-actions">
       <button class="btn btn-gray" onclick="closeModal('timeModal')">取消</button>
       <button class="btn btn-primary" onclick="confirmTimeModal()">选择文件</button>
+    </div>
+  </div>
+</div>
+
+<!-- 上传后：给每个物料设置所属活动 -->
+<div class="modal-overlay" id="matActModal">
+  <div class="modal" style="width:min(680px,96vw);max-width:680px">
+    <h3 data-lk="matActTitle">给每个物料设置所属活动</h3>
+    <p class="hint" style="margin-bottom:12px" data-lk="matActHint">上传的表格里有下面这些物料名称。为每个物料选择或新建活动（新活动要填起止日期），导入后会自动给对应行打上活动标签，不用再逐行手选。</p>
+    <div class="mat-act-list" id="matActList"></div>
+    <datalist id="matActOpts"></datalist>
+    <div class="modal-actions">
+      <button class="btn btn-gray" onclick="skipMatAct()" data-lk="matActSkipBtn">暂不设置</button>
+      <button class="btn btn-primary" onclick="applyMatAct()" data-lk="matActApplyBtn">应用活动标签</button>
     </div>
   </div>
 </div>
@@ -1637,6 +1660,10 @@ const LABEL_DEFS=[
   ['timeModalTitle','订单备注弹窗标题','物流订单备注'],
   ['timeModalHint','订单备注弹窗说明','填写物料订单说明，如：十一活动汇总'],
   ['orderNoteLabel','订单说明输入框标签','订单说明'],
+  ['matActTitle','按物料设置活动·弹窗标题','给每个物料设置所属活动'],
+  ['matActHint','按物料设置活动·弹窗说明','上传的表格里有下面这些物料名称。为每个物料选择或新建活动（新活动要填起止日期），导入后会自动给对应行打上活动标签，不用再逐行手选。'],
+  ['matActApplyBtn','按物料设置活动·应用按钮','应用活动标签'],
+  ['matActSkipBtn','按物料设置活动·跳过按钮','暂不设置'],
   ['reportLogic','导入报告·匹配逻辑说明','匹配逻辑：地址优先 —— 收件地址与门店地址归一化后打分（完全相等=100%，包含=60%~100%，公共尾段按占比给分），≥50% 才认；几家分数接近时用手机号区分；地址、手机号都不行时再看收件人姓名（只认唯一命中的那一家，多家重名不猜）；都不行才记为未匹配（原因见下表）。'],
   ['dashTitle','汇总页标题','月度活动汇总'],
   ['dashMonthLabel','「按活动时间查看」按钮','按活动时间查看'],
@@ -1893,11 +1920,90 @@ function parseSF(file,orderTime,note){
       renderOrderSelect();
       renderDashboard();
       addLog('导入顺丰回单 '+sfData.length+' 条'+(skippedWH?'（已过滤 '+skippedWH+' 条非'+SF_WAREHOUSE+'仓）':'')+'（'+orderLabel(ord)+'）');
-      if(sfData.some(r=>!r.matchedStore))openMatchReport();
+      if(!openMatActModal())finishImportReport();
     }catch(err){alert('解析失败：'+err.message)}
   };
   reader.readAsArrayBuffer(file);
 }
+
+// ---------- 上传后：按物料名称设置所属活动（自动打活动标签） ----------
+let matActRows=[];
+function matActDefaultDates(){
+  const ym=(sfYM||currentYM()||'').slice(0,7);
+  const y=parseInt(ym.slice(0,4),10)||new Date().getFullYear();
+  const m=parseInt(ym.slice(5,7),10)||(new Date().getMonth()+1);
+  const last=new Date(y,m,0).getDate();
+  return {start:ym+'-01',end:ym+'-'+String(last).padStart(2,'0')};
+}
+function openMatActModal(){
+  const names=[],seen={};
+  for(const r of sfData){
+    const n=String(r.productName||'').trim();
+    if(n&&!seen[n]){seen[n]=1;names.push(n)}
+  }
+  if(!names.length)return false;
+  const d=matActDefaultDates();
+  const acts=DB.activities;
+  matActRows=names.map(n=>{
+    const hit=acts.some(a=>a.name===n);
+    return {name:n,act:hit?n:'',start:d.start,end:d.end,existing:hit};
+  });
+  renderMatActList();
+  document.getElementById('matActModal').classList.add('show');
+  return true;
+}
+function renderMatActList(){
+  const opts=DB.activities.map(a=>`<option value="${esc(a.name)}"></option>`).join('');
+  const dl=document.getElementById('matActOpts');
+  if(dl)dl.innerHTML=opts;
+  const el=document.getElementById('matActList');
+  if(!el)return;
+  el.innerHTML='<div class="mat-act-row head"><span>物料名称</span><span>所属活动（选已有或输入新名称）</span><span>开始日期</span><span>结束日期</span></div>'+
+    matActRows.map((x,i)=>`<div class="mat-act-row">
+      <span class="ma-name" title="${esc(x.name)}">${esc(x.name)}${x.existing?'<i class="new">同名活动</i>':''}</span>
+      <input type="text" data-i="${i}" data-k="act" value="${esc(x.act)}" placeholder="选择已有活动或输入新名称" autocomplete="off" list="matActOpts">
+      <input type="date" data-i="${i}" data-k="start" value="${esc(x.start)}">
+      <input type="date" data-i="${i}" data-k="end" value="${esc(x.end)}">
+    </div>`).join('');
+}
+function applyMatAct(){
+  const acts=DB.activities.slice();
+  const have={};acts.forEach(a=>{have[a.name]=a});
+  const todo=(matActRows||[]).filter(x=>String(x.act||'').trim());
+  if(!todo.length){skipMatAct();return}
+  let added=0;
+  for(const x of todo){
+    const nm=String(x.act).trim();
+    if(!have[nm]){
+      if(!x.start||!x.end){alert('「'+nm+'」是新活动，请把开始日期和结束日期填好');return}
+      const a={id:uid(),name:nm,startDate:x.start,endDate:x.end};
+      acts.push(a);have[nm]=a;added++;
+    }
+    for(const r of sfData){if(String(r.productName||'').trim()===x.name)r.activity=nm}
+  }
+  if(added)DB.activities=acts;
+  const rows=sfData.filter(r=>r.activity).length;
+  addLog('按物料自动设置活动标签：'+todo.length+' 个物料 → '+rows+' 行'+(added?'，新建活动 '+added+' 个':''));
+  closeModal('matActModal');
+  persistSf();
+  refreshBatchActSelect();
+  renderPreview();renderMatchInfo();updateSelCount();renderDashboard();
+  flashTip('✓ 已按物料打好活动标签（'+rows+' 行）',2600);
+  finishImportReport();
+}
+function skipMatAct(){
+  closeModal('matActModal');
+  finishImportReport();
+}
+function finishImportReport(){
+  if(sfData.some(r=>!r.matchedStore))openMatchReport();
+}
+const matActListEl=document.getElementById('matActList');
+if(matActListEl)matActListEl.addEventListener('input',e=>{
+  const el=e.target,i=parseInt(el.dataset.i,10),k=el.dataset&&el.dataset.k;
+  if(!k||isNaN(i)||!matActRows[i])return;
+  matActRows[i][k]=String(el.value==null?'':el.value);
+});
 
 function matchAll(){
   const list=DB.contacts.map(c=>({c,a:normAddr(c.address),p:cleanPhone(c.phone),n:normAddr(c.storeName),rn:normName(c.recipient)}));
