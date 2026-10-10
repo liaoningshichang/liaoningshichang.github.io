@@ -277,7 +277,7 @@ iframe[id^="sb__open-sandbox"]{display:none!important}
       <button class="btn btn-outline" data-lk="btnNewAct" onclick="openActModal()">新建活动</button>
     </div>
 
-    <div class="drop-zone" id="dropZone" onclick="handleUploadClick()">
+    <div class="drop-zone" id="dropZone" onclick="handleUploadClick(event)">
       <p id="dzTitle" data-lk="dzTitle">点击或拖拽上传顺丰回单Excel</p>
       <p class="hint" id="dzHint" data-lk="dzHint">支持 .xlsx / .xls / .csv；上传前需先输入物流下单时间</p>
       <input type="file" id="sfFile" accept=".xlsx,.xls,.csv" style="display:none">
@@ -1285,11 +1285,14 @@ function addActivity(){
 
 function refreshBatchActSelect(){
   const sel=document.getElementById('batchActSelect');
+  if(!sel)return;
+  const prev=sel.value;
   const acts=DB.activities;
   sel.innerHTML='<option value="">-- 选择活动 --</option>'+acts.map(a=>{
     const label=a.startDate?a.name+'（'+a.startDate+' ~ '+a.endDate+'）':a.name;
     return `<option value="${esc(a.name)}">${esc(label)}</option>`;
   }).join('');
+  if(prev&&[...sel.options].some(o=>o.value===prev))sel.value=prev;
 }
 
 function batchApplyActivity(){
@@ -1491,7 +1494,10 @@ function applyLabels(){
 }
 let pendingFile=null;
 let lastOrderTime='';
-function handleUploadClick(){openTimeModal(null)}
+function handleUploadClick(e){
+  if(e&&e.target&&e.target.id==='sfFile')return;
+  openTimeModal(null)
+}
 function openTimeModal(file){
   pendingFile=file||null;
   const inp=document.getElementById('orderTimeInput');
@@ -1624,6 +1630,7 @@ const dropZone=document.getElementById('dropZone');
 dropZone.addEventListener('dragover',e=>{e.preventDefault();dropZone.classList.add('dragover')});
 dropZone.addEventListener('dragleave',()=>dropZone.classList.remove('dragover'));
 dropZone.addEventListener('drop',e=>{e.preventDefault();dropZone.classList.remove('dragover');if(e.dataTransfer.files[0])openTimeModal(e.dataTransfer.files[0])});
+document.getElementById('sfFile').addEventListener('click',e=>e.stopPropagation());
 document.getElementById('sfFile').addEventListener('change',function(e){if(e.target.files[0])parseSF(e.target.files[0],lastOrderTime);e.target.value=''});
 
 function detectYM(rows,ci,fallback){
@@ -1645,10 +1652,12 @@ function detectYM(rows,ci,fallback){
   return fallback;
 }
 
+const SF_WAREHOUSE='024DCB';
 function parseSF(file,orderTime){
   if(typeof XLSX==='undefined'){alert('Excel 解析库未加载，请联网后刷新页面重试');return}
   const reader=new FileReader();
   reader.onload=function(ev){
+    closeModal('timeModal');
     try{
       const wb=XLSX.read(ev.target.result,{type:'array',cellDates:true});
       const ws=wb.Sheets[wb.SheetNames[0]];
@@ -1657,20 +1666,30 @@ function parseSF(file,orderTime){
       const headers=rows[0].map(h=>String(h).trim());
       const ci={};
       const fc=ns=>headers.findIndex(h=>ns.some(n=>h.includes(n)));
+      const fcs=ns=>{for(const n of ns){const i=headers.findIndex(h=>h.includes(n));if(i>=0)return i}return -1};
       ci.tracking=fc(['运单号']);ci.name=fc(['收方姓名','收件人']);
       ci.phone=fc(['收方手机','收件手机','手机']);ci.address=fc(['收件地址','收货地址','地址']);
       ci.productCode=fc(['商品编码','商品编号','物料代码']);ci.productName=fc(['商品名称','物料名称']);
       ci.qty=fc(['发货/出库数量','出库数量','发货数量','数量']);
       ci.date=fc(['数据创建时间','创建时间','下单时间','日期']);
+      ci.warehouse=fcs(['仓库代码','仓库编码','仓库编号','发货仓库代码','所属仓库代码','收货仓库代码','仓库id']);
+      if(ci.warehouse<0)ci.warehouse=fcs(['仓库']);
       if(ci.tracking<0){alert('未找到"运单号"列');return}
+      const onlyWH=ci.warehouse>=0;
+      if(!onlyWH&&!confirm('表头里没有找到「仓库代码」列，无法只导入 '+SF_WAREHOUSE+' 仓的订单。\n确定＝导入全部数据　取消＝放弃本次导入'))return;
+      let skippedWH=0;
       sfData=[];
       for(let i=1;i<rows.length;i++){
         const row=rows[i];if(!row||!row.length)continue;
         const g=k=>ci[k]>=0?String(row[ci[k]]||'').trim():'';
         const tracking=g('tracking');if(!tracking)continue;
+        if(onlyWH&&g('warehouse').replace(/\s+/g,'').toUpperCase()!==SF_WAREHOUSE){skippedWH++;continue}
         sfData.push({tracking,name:g('name'),phone:g('phone'),address:g('address'),productCode:g('productCode'),productName:g('productName'),qty:parseFloat(g('qty'))||0,matchedStore:'',activity:''});
       }
-      if(!sfData.length){alert('未读取到有效数据');return}
+      if(!sfData.length){
+        alert(onlyWH&&skippedWH?('文件里 '+skippedWH+' 条记录的仓库代码都不是 '+SF_WAREHOUSE+'，未导入任何数据'):'未读取到有效数据');
+        return
+      }
       const ord=resolveOrderForUpload(orderTime||lastOrderTime);
       const ot=ord.orderTime||orderTime||lastOrderTime||'';
       sfYM=ot?ot.slice(0,7):detectYM(rows,ci,currentYM());
@@ -1682,7 +1701,7 @@ function parseSF(file,orderTime){
       refreshBatchActSelect();
       renderMatchInfo();renderPreview();updateSelCount();
       renderOrderSelect();
-      addLog('导入顺丰回单 '+sfData.length+' 条（'+orderLabel(ord)+'）');
+      addLog('导入顺丰回单 '+sfData.length+' 条'+(skippedWH?'（已过滤 '+skippedWH+' 条非'+SF_WAREHOUSE+'仓）':'')+'（'+orderLabel(ord)+'）');
     }catch(err){alert('解析失败：'+err.message)}
   };
   reader.readAsArrayBuffer(file);
@@ -2079,6 +2098,8 @@ function renderLogs(){
 // ==================== 刷新 ====================
 function refreshAll(){
   renderContacts();renderDashboard();renderLogs();renderAlloc();
+  refreshBatchActSelect();
+  if(typeof sfData!=='undefined'&&sfData.length)renderPreview();
 }
 
 // ==================== 数据备份 / 环境诊断 ====================
