@@ -151,6 +151,21 @@ tr:hover{background:#f8f9fc}
 .mat-act-row input:focus{border-color:#1a73e8;outline:none;box-shadow:0 0 0 2px rgba(26,115,232,.15)}
 .ma-name{font-size:12.5px;font-weight:500;word-break:break-all}
 .ma-name .new{display:inline-block;margin-left:5px;font-size:10.5px;color:#188038;background:#e6f4ea;border-radius:8px;padding:1px 6px;white-space:nowrap}
+/* 门店信息历史记录 / 活动确认表导入 */
+.ch-dot{display:inline-block;width:14px;height:14px;line-height:14px;text-align:center;font-size:10px;font-style:normal;color:#fff;background:#1a73e8;border-radius:50%;margin-left:3px;cursor:pointer;vertical-align:middle}
+#contactBody td[data-c="0"]{white-space:nowrap}
+.ch-item{padding:8px 12px;border-bottom:1px solid #f2f2f2;font-size:12.5px}
+.ch-item:last-child{border-bottom:none}
+.ch-item .ch-who{font-weight:600}
+.ch-item .ch-src{color:#1a73e8;margin-left:6px}
+.ch-item .ch-diff{color:#555;margin-top:3px;word-break:break-all}
+.ch-item .ch-diff .old{text-decoration:line-through;color:#999}
+.ch-item .ch-diff .new{color:#188038}
+.ch-empty{padding:22px;text-align:center;color:#999;font-size:13px}
+.ch-rep-line{padding:4px 0;font-size:13px;word-break:break-all}
+.ch-rep-line b.num{font-size:15px}
+.ch-rep-sub{font-size:12px;color:#666;margin-left:6px}
+.ch-rep-warn{background:#fef7e0;border:1px solid #fde293;border-radius:6px;padding:6px 10px;font-size:12.5px;color:#8a5a00;margin-top:8px;max-height:140px;overflow:auto}
 .modal .form-group{display:flex;flex-direction:column;gap:4px;margin-bottom:12px}
 .modal .form-group label{font-size:13px;color:#555;font-weight:500}
 .modal .form-group input,.modal .form-group select{padding:8px 10px;border:1px solid #ddd;border-radius:6px;font-size:14px;outline:none}
@@ -253,7 +268,7 @@ iframe[id^="sb__open-sandbox"]{display:none!important}
 #allocWrap th[data-c]:hover{background:#e8f0fe;color:#1a73e8}
 #allocWrap th[data-c] .fmark{position:absolute;right:7px;top:50%;transform:translateY(-50%);font-size:9px;color:#bbb;font-style:normal}
 #allocWrap th[data-c] .fmark::before{content:'▾'}
-#allocWrap th.sorted,#allocWrap th.filtered{background:#e8f0fe;color:#1a73e8}
+#allocWrap th[data-c].filtered{background:#e8f0fe;color:#1a73e8}
 #allocWrap th.filtered .fmark{color:#1a73e8}
 #allocBody td.csel{background:#d2e3fc!important;box-shadow:inset 0 0 0 1px #1a73e8}
 #allocBody td.csel input{background:rgba(255,255,255,.35)}
@@ -447,6 +462,9 @@ iframe[id^="sb__open-sandbox"]{display:none!important}
       <button class="btn btn-success" data-lk="btnExportContacts" onclick="exportContacts()">导出</button>
       <input type="file" accept=".xlsx,.xls,.csv" id="contactFile" style="display:none">
       <button class="btn btn-outline" data-lk="btnImportContacts" onclick="document.getElementById('contactFile').click()">导入Excel</button>
+      <input type="file" accept=".xlsx,.xls,.csv" id="cConfirmFile" style="display:none">
+      <button class="btn btn-outline" data-lk="btnImportConfirm" title="导入店长确认过的活动门店表，收货人/电话/地址有变动的会自动写回并记入历史" onclick="document.getElementById('cConfirmFile').click()">导入活动确认表</button>
+      <button class="btn btn-outline" data-lk="btnViewHistory" onclick="openChHistory()">历史记录</button>
       <input type="text" class="search-box" id="contactSearch" placeholder="搜索门店、收货人、地址…">
       <span style="font-size:12px;color:#999;margin-left:auto" data-lk="contactHint">点击单元格编辑，拖动框选后 Ctrl+C / Ctrl+V 复制粘贴</span>
     </div>
@@ -591,6 +609,30 @@ iframe[id^="sb__open-sandbox"]{display:none!important}
     <div class="modal-actions">
       <button class="btn btn-gray" onclick="skipMatAct()" data-lk="matActSkipBtn">暂不设置</button>
       <button class="btn btn-primary" onclick="applyMatAct()" data-lk="matActApplyBtn">应用活动标签</button>
+    </div>
+  </div>
+</div>
+
+<!-- 活动确认表导入结果 -->
+<div class="modal-overlay" id="chReportModal">
+  <div class="modal" style="width:min(660px,96vw);max-width:660px">
+    <h3 data-lk="chRepTitle">活动确认表导入结果</h3>
+    <div id="chReportBody" style="margin-top:8px"></div>
+    <div class="modal-actions">
+      <button class="btn btn-gray" onclick="closeModal('chReportModal')" data-lk="chRepClose">关闭</button>
+    </div>
+  </div>
+</div>
+
+<!-- 门店信息历史记录 -->
+<div class="modal-overlay" id="chHistModal">
+  <div class="modal" style="width:min(700px,96vw);max-width:700px">
+    <h3 data-lk="chHistTitle">门店信息历史记录</h3>
+    <p class="hint" style="margin-bottom:10px" data-lk="chHistHint">导入「活动确认表」后，店长改过的收货人/收货电话/收货地址会写回门店信息，旧值留在这里，格式：来源 · 日期。</p>
+    <input type="text" class="search-box" id="chHistSearch" style="width:100%;margin-bottom:8px" placeholder="搜门店代码、门店名、活动名…" oninput="renderChHistList()">
+    <div id="chHistList" style="max-height:52vh;overflow:auto;border:1px solid #eee;border-radius:8px"></div>
+    <div class="modal-actions">
+      <button class="btn btn-gray" onclick="closeModal('chHistModal')" data-lk="chHistClose">关闭</button>
     </div>
   </div>
 </div>
@@ -830,7 +872,7 @@ function lsSet(k,v){
 // ==================== Supabase 云同步 ====================
 let syncCfg=null, applyingRemote=false;
 const syncDirty={}, syncTimers={}, syncMeta={};
-const SYNC_KEYS=['contacts','activities','orders','labels','materials','alloc'];
+const SYNC_KEYS=['contacts','activities','orders','labels','materials','alloc','contactHistory'];
 
 function loadSyncCfg(){
   try{
@@ -875,7 +917,7 @@ async function sbGet(key){
 async function sbPut(key,value){
   await sbFetch('/rest/v1/sync_kv',{method:'POST',headers:Object.assign(syncHeaders(),{'Prefer':'resolution=merge-duplicates'}),body:JSON.stringify([{key,value}])});
 }
-function localValue(key){return key==='contacts'?DB.contacts:key==='activities'?DB.activities:key==='labels'?DB.labels:key==='materials'?DB.materials:key==='alloc'?DB.alloc:DB.orders}
+function localValue(key){return key==='contacts'?DB.contacts:key==='activities'?DB.activities:key==='labels'?DB.labels:key==='materials'?DB.materials:key==='alloc'?DB.alloc:key==='contactHistory'?DB.contactHistory:DB.orders}
 function applyRemote(key,value,ts,alsoPushKey){
   applyingRemote=true;
   try{
@@ -883,6 +925,7 @@ function applyRemote(key,value,ts,alsoPushKey){
     else if(key==='activities')DB.activities=Array.isArray(value)?value:[];
     else if(key==='materials')DB.materials=Array.isArray(value)?value:[];
     else if(key==='alloc')DB.alloc=Array.isArray(value)?value:[];
+    else if(key==='contactHistory')DB.contactHistory=Array.isArray(value)?value:[];
     else if(key==='labels'){DB.labels=(value&&typeof value==='object')?value:{};applyLabels()}
     else if(key==='archive'){
       // 旧版客户端只推 archive：本地无订单数据时迁移为物流订单
@@ -976,6 +1019,8 @@ const DB={
   set materials(v){if(lsSet('lg2_materials',JSON.stringify(v)))schedulePush('materials')},
   get alloc(){try{return JSON.parse(localStorage.getItem('lg2_alloc')||'[]')}catch(e){return []}},
   set alloc(v){if(lsSet('lg2_alloc',JSON.stringify(v)))schedulePush('alloc')},
+  get contactHistory(){try{return JSON.parse(localStorage.getItem('lg2_contactHistory')||'[]')}catch(e){return []}},
+  set contactHistory(v){if(lsSet('lg2_contactHistory',JSON.stringify(v)))schedulePush('contactHistory')},
   get logs(){try{return JSON.parse(localStorage.getItem('lg2_logs')||'[]')}catch(e){return []}},
   set logs(v){lsSet('lg2_logs',JSON.stringify(v))},
 };
@@ -1105,14 +1150,17 @@ function renderContacts(){
   }
 
   cList=list;
+  const histCnt={};try{DB.contactHistory.forEach(h=>{const k=cleanStr(h.storeCode).toUpperCase();if(k)histCnt[k]=(histCnt[k]||0)+1})}catch(e){}
   body.innerHTML=slice.map((r,ri)=>{
     const vr=start+ri;
     const statusOpts=['营业中','装修中','暂停营业','已关闭'];
     const channelOpts=['直营','授权店','加盟','合作'];
     const cell=(f,val,ph,list)=>`<td data-c="${CFIELDS.indexOf(f)}"><input data-f="${f}" value="${esc(val)}" placeholder="${ph}"${list?` list="${list}"`:''}></td>`;
+    const hcn=histCnt[cleanStr(r.storeCode).toUpperCase()]||0;
+    const codeCell=`<td data-c="0"><input data-f="storeCode" value="${esc(r.storeCode)}" placeholder="代码">${hcn?'<i class="ch-dot" title="有 '+hcn+' 条信息变更历史（点击查看）" onclick="event.stopPropagation();openChHistory(\''+String(r.storeCode).replace(/['"\\]/g,'')+'\')">'+Math.min(hcn,9)+'</i>':''}</td>`;
     return `<tr data-id="${esc(r.id||'')}" data-vr="${vr}">
       <td class="cb-col"><input type="checkbox" class="c-cb" data-id="${esc(r.id||'')}"></td>
-      ${cell('storeCode',r.storeCode,'代码')}
+      ${codeCell}
       ${cell('storeName',r.storeName,'门店名称')}
       ${cell('city',r.city,'市')}
       ${cell('district',r.district,'区')}
@@ -1397,6 +1445,140 @@ function exportContacts(){
   addLog('导出联系人');
 }
 
+// ==================== 活动确认表导入 / 门店信息历史 ====================
+// 店长在飞书公示表里改过的收货人/收货电话/收货地址，导入后自动写回门店信息，旧值进历史
+const CH_FIELDS=[['recipient','收货人'],['phone','收货电话'],['address','收货地址']];
+const CH_ALIASES={
+  storeCode:['门店代码','门店编码'],
+  storeName:['门店名称'],
+  recipient:['收货人','收件人','联系人'],
+  phone:['收货电话','收货手机','收货号码','联系电话','电话'],
+  address:['收货地址','收件地址'],
+  confirm:['门店信息确认','信息核对','门店信息核对']
+};
+function chNorm(field,v){
+  if(field==='phone')return cleanPhone(v);
+  if(field==='address')return normAddr(v);
+  return cleanStr(v);
+}
+// 地址常出现"省市区前缀重复"这类脏数据（表里前缀抄了两遍），归一化后一方包含另一方也算没变
+function chSame(field,ov,nv){
+  const a=chNorm(field,ov),b=chNorm(field,nv);
+  if(a===b)return true;
+  if(field==='address'&&a&&b&&(a.includes(b)||b.includes(a)))return true;
+  return false;
+}
+function chFindHeaderRow(matrix){
+  for(let i=0;i<Math.min(matrix.length,12);i++){
+    const row=matrix[i];if(!row)continue;
+    if(row.some(c=>/门店代码|门店编码/.test(String(c==null?'':c))))return i;
+  }
+  return -1;
+}
+function chMapCols(headers){
+  const map={};
+  for(const[k,ns]of Object.entries(CH_ALIASES)){
+    for(const alias of ns){
+      const idx=headers.findIndex(h=>h&&h.includes(alias));
+      if(idx>=0){map[k]=idx;break}
+    }
+  }
+  return map;
+}
+function importConfirmData(matrix,title){
+  const hr=chFindHeaderRow(matrix);
+  if(hr<0)return {error:'没找到表头（需要有一行包含「门店代码」）'};
+  const headers=(matrix[hr]||[]).map(h=>String(h==null?'':h).replace(/\s+/g,''));
+  const cm=chMapCols(headers);
+  if(cm.storeCode===undefined&&cm.storeName===undefined)return {error:'表头里没有「门店代码」/「门店名称」列'};
+  if(cm.recipient===undefined&&cm.phone===undefined&&cm.address===undefined)return {error:'表头里没有「收货人/收货电话/收货地址」列'};
+  const src=String(title||'活动确认表');
+  const date=new Date().toISOString().slice(0,10);
+  const contacts=DB.contacts.slice();
+  const byCode=new Map(),byName=new Map();
+  contacts.forEach((c,i)=>{
+    const sc=cleanStr(c.storeCode).toUpperCase();if(sc&&!byCode.has(sc))byCode.set(sc,i);
+    const sn=cleanStr(c.storeName);if(sn&&!byName.has(sn))byName.set(sn,i);
+  });
+  const hist=[],unmatched=[];let rows=0,matched=0,updated=0,marked=0;
+  for(let i=hr+1;i<matrix.length;i++){
+    const row=matrix[i];if(!row)continue;
+    const g=ci=>ci===undefined?'':String(row[ci]==null?'':row[ci]).trim();
+    const sc=cleanStr(g(cm.storeCode)).toUpperCase(),sn=cleanStr(g(cm.storeName));
+    if(!sc&&!sn)continue;
+    rows++;
+    const hit=byCode.has(sc)?byCode.get(sc):(sn&&byName.has(sn)?byName.get(sn):-1);
+    if(hit<0){unmatched.push({storeCode:g(cm.storeCode),storeName:g(cm.storeName)});continue}
+    matched++;
+    if(cm.confirm!==undefined&&/有误|修改/.test(g(cm.confirm)))marked++;
+    const c=contacts[hit];let changed=false;
+    for(const[f,label]of CH_FIELDS){
+      if(cm[f]===undefined)continue;
+      const nv=String(row[cm[f]]==null?'':row[cm[f]]).trim();
+      if(!nv)continue;
+      const ov=String(c[f]==null?'':c[f]);
+      if(chSame(f,ov,nv))continue;
+      c[f]=nv;changed=true;
+      hist.push({id:uid(),storeCode:c.storeCode||g(cm.storeCode),storeName:c.storeName||g(cm.storeName),field:f,fieldLabel:label,from:ov,to:nv,source:src,date,ts:Date.now()});
+    }
+    if(changed)updated++;
+  }
+  if(updated)DB.contacts=contacts;
+  if(hist.length)DB.contactHistory=[...hist,...DB.contactHistory].slice(0,3000);
+  return {rows,matched,updated,changedFields:hist.length,marked,unmatched,entries:hist,source:src};
+}
+document.getElementById('cConfirmFile').addEventListener('change',function(e){
+  const file=e.target.files[0];if(!file)return;
+  if(typeof XLSX==='undefined'){alert('Excel 解析库未加载，请联网后刷新页面重试');e.target.value='';return}
+  const reader=new FileReader();
+  reader.onload=function(ev){
+    try{
+      const wb=XLSX.read(ev.target.result,{type:'array'});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const matrix=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+      const r=importConfirmData(matrix,String(wb.SheetNames[0]||'活动确认表'));
+      if(r.error){alert(r.error);return}
+      addLog('导入活动确认表「'+r.source+'」：读 '+r.rows+' 行，更新 '+r.updated+' 家门店 / 新增历史 '+r.changedFields+' 条');
+      refreshAll();renderChReport(r);renderChHistList();
+    }catch(err){alert('解析失败：'+err.message)}
+  };
+  reader.readAsArrayBuffer(file);e.target.value='';
+});
+function renderChReport(r){
+  const body=document.getElementById('chReportBody');
+  let html='<div class="ch-rep-line">读取 <b class="num">'+r.rows+'</b> 行，匹配到 <b class="num">'+r.matched+'</b> 家门店</div>'+
+    '<div class="ch-rep-line"><b class="num">'+r.updated+'</b> 家门店的收货信息有变动，已写回门店信息并记入历史（共 <b class="num">'+r.changedFields+'</b> 条）<span class="ch-rep-sub">来源：'+esc(r.source)+' · '+new Date().toISOString().slice(0,10)+'</span></div>';
+  if(r.marked)html+='<div class="ch-rep-line">店长在「门店信息确认」列标了「有误/已修改」的：<b class="num">'+r.marked+'</b> 家<span class="ch-rep-sub">（其中 '+r.updated+' 家实际有字段变动）</span></div>';
+  if(r.entries&&r.entries.length){
+    html+='<div style="margin-top:10px;border-top:1px solid #eee;padding-top:8px;font-size:12.5px"><b>变动明细</b></div>';
+    html+=r.entries.slice(0,80).map(h=>'<div class="ch-rep-line"><b>'+esc(h.storeName||h.storeCode)+'</b> · '+esc(h.fieldLabel)+'：<span style="color:#999;text-decoration:line-through">'+esc(h.from||'（空）')+'</span> → <span style="color:#188038">'+esc(h.to)+'</span></div>').join('');
+    if(r.entries.length>80)html+='<div class="ch-rep-sub">…等共 '+r.entries.length+' 条，其余见「历史记录」</div>';
+  }
+  if(r.unmatched&&r.unmatched.length){
+    html+='<div class="ch-rep-warn"><b>'+r.unmatched.length+' 行没匹配到门店信息库（未写入）：</b><br>'+r.unmatched.slice(0,20).map(u=>esc(u.storeCode||'')+' '+esc(u.storeName||'')).join('；')+(r.unmatched.length>20?' …':'')+'</div>';
+  }
+  if(!r.updated&&!(r.unmatched||[]).length)html+='<div class="ch-rep-line" style="color:#188038;margin-top:8px">✓ 全部门店的收货信息都和库里一致，无需改动</div>';
+  body.innerHTML=html;
+  document.getElementById('chReportModal').classList.add('show');
+}
+function openChHistory(pre){
+  const s=document.getElementById('chHistSearch');
+  if(s)s.value=pre||'';
+  renderChHistList(pre);
+  document.getElementById('chHistModal').classList.add('show');
+}
+function renderChHistList(pre){
+  const el=document.getElementById('chHistList');if(!el)return;
+  const q=String(pre==null?((document.getElementById('chHistSearch')||{}).value||''):pre).trim().toLowerCase();
+  let list=DB.contactHistory.slice();
+  if(q)list=list.filter(h=>[h.storeCode,h.storeName,h.source,h.fieldLabel,h.from,h.to].some(v=>String(v||'').toLowerCase().includes(q)));
+  if(!list.length){el.innerHTML='<div class="ch-empty">'+(q?'没有匹配的记录':'还没有历史记录。导入店长确认过的活动门店表后，变动会自动记在这里。')+'</div>';return}
+  el.innerHTML=list.slice(0,300).map(h=>`<div class="ch-item">
+    <span class="ch-who">${esc(h.storeName||h.storeCode)}</span><span class="ch-src">${esc(h.source||'')} · ${esc(h.date||'')}</span>
+    <div class="ch-diff">${esc(h.fieldLabel||h.field||'')}：<span class="old">${esc(h.from||'（空）')}</span> → <span class="new">${esc(h.to)}</span></div>
+  </div>`).join('')+(list.length>300?'<div class="ch-empty">仅显示前 300 条，请搜索缩小范围</div>':'');
+}
+
 // ==================== 活动管理 ====================
 function renderActEditList(){
   const acts=DB.activities;
@@ -1664,6 +1846,13 @@ const LABEL_DEFS=[
   ['matActHint','按物料设置活动·弹窗说明','上传的表格里有下面这些物料名称。为每个物料选择或新建活动（新活动要填起止日期），导入后会自动给对应行打上活动标签，不用再逐行手选。'],
   ['matActApplyBtn','按物料设置活动·应用按钮','应用活动标签'],
   ['matActSkipBtn','按物料设置活动·跳过按钮','暂不设置'],
+  ['btnImportConfirm','门店信息·导入活动确认表按钮','导入活动确认表'],
+  ['btnViewHistory','门店信息·历史记录按钮','历史记录'],
+  ['chRepTitle','活动确认表导入结果·标题','活动确认表导入结果'],
+  ['chRepClose','活动确认表导入结果·关闭按钮','关闭'],
+  ['chHistTitle','门店信息历史记录·标题','门店信息历史记录'],
+  ['chHistHint','门店信息历史记录·说明','导入「活动确认表」后，店长改过的收货人/收货电话/收货地址会写回门店信息，旧值留在这里，格式：来源 · 日期。'],
+  ['chHistClose','门店信息历史记录·关闭按钮','关闭'],
   ['reportLogic','导入报告·匹配逻辑说明','匹配逻辑：地址优先 —— 收件地址与门店地址归一化后打分（完全相等=100%，包含=60%~100%，公共尾段按占比给分），≥50% 才认；几家分数接近时用手机号区分；地址、手机号都不行时再看收件人姓名（只认唯一命中的那一家，多家重名不猜）；都不行才记为未匹配（原因见下表）。'],
   ['dashTitle','汇总页标题','月度活动汇总'],
   ['dashMonthLabel','「按活动时间查看」按钮','按活动时间查看'],
@@ -2799,7 +2988,7 @@ function refreshAll(){
 
 // ==================== 数据备份 / 环境诊断 ====================
 function backupPayload(){
-  return {v:1,app:'lg2',exportedAt:new Date().toISOString(),contacts:DB.contacts,orders:DB.orders,activities:DB.activities,labels:DB.labels,materials:DB.materials,alloc:DB.alloc};
+  return {v:1,app:'lg2',exportedAt:new Date().toISOString(),contacts:DB.contacts,orders:DB.orders,activities:DB.activities,labels:DB.labels,materials:DB.materials,alloc:DB.alloc,contactHistory:DB.contactHistory};
 }
 function downloadBackup(){
   try{
@@ -2829,12 +3018,13 @@ function restoreBackup(input){
       if(d.labels&&typeof d.labels==='object')DB.labels=d.labels;
       if(Array.isArray(d.materials))DB.materials=d.materials;
       if(Array.isArray(d.alloc))DB.alloc=d.alloc;
+      if(Array.isArray(d.contactHistory))DB.contactHistory=d.contactHistory;
     }finally{applyingRemote=false}
     ensureOrderCodes();
     if(!currentOrderId||!findOrder(currentOrderId))currentOrderId=(DB.orders[0]||{}).id||'';
     saveCurrentOrderId();
     restoreSfView();applyLabels();refreshAll();
-    if(syncCfg){['contacts','orders','activities','labels','materials','alloc'].forEach(schedulePush)}
+    if(syncCfg){['contacts','orders','activities','labels','materials','alloc','contactHistory'].forEach(schedulePush)}
     hideDataAlert();
     addLog('从备份恢复：联系人 '+n+'、物流单 '+m);
     alert('恢复完成');
@@ -2886,7 +3076,7 @@ function renderEnvDiag(){
 
 
 // ==================== 物料分配 ====================
-let aPage=1,aPageSize=50,aFilter='',aSortCi=-1,aSortDir=1,aFilters={};
+let aPage=1,aPageSize=50,aFilter='',aFilters={};
 let aAll=[],aList=[],aSel=null,aAnchor=null,aDrag=false,allocUndo=null;
 let aColsCache=null,aCtxCache=null;
 let aDebounce=debounce(v=>{aFilter=v;aPage=1;aSel=null;renderAlloc()},300);
@@ -3223,13 +3413,6 @@ function aSave(){DB.alloc=aAll}
 
 // ---------- 渲染 ----------
 function afKey(v){return (v===''||v===null||v===undefined)?'__BLANK__':String(v)}
-function cmpSort(a,b){
-  const an=typeof a==='number'&&isFinite(a),bn=typeof b==='number'&&isFinite(b);
-  if(an&&bn)return a-b;
-  if(an)return -1;
-  if(bn)return 1;
-  return String(a).localeCompare(String(b),'zh');
-}
 function renderAlloc(){
   const head=document.getElementById('allocHead');
   const body=document.getElementById('allocBody');
@@ -3257,20 +3440,14 @@ function renderAlloc(){
     if(!cols[ci])return;
     list=list.filter(r=>set.has(afKey(base.disp(r,ci))));
   });
-  if(aSortCi>=0&&cols[aSortCi]){
-    const ci=aSortCi;
-    list=list.map(r=>({r,k:base.disp(r,ci)})).sort((x,y)=>cmpSort(x.k,y.k)*aSortDir).map(o=>o.r);
-  }
   aList=list;
   renderMats();
 
   head.innerHTML='<th class="cb-col"><input type="checkbox" id="aCheckAll" onchange="allocToggleAll(this.checked)"></th>'+
     cols.map((c,i)=>{
       const cls=[];
-      if(aSortCi===i)cls.push('sorted');
       if(aFilters[i]&&aFilters[i].size)cls.push('filtered');
-      const tip=aSortCi===i?(aSortDir===1?'当前升序，点击改为降序':'当前降序，点击清除排序'):'点击排序';
-      return '<th data-c="'+i+'" class="'+cls.join(' ')+'" title="'+tip+'，点 ▾ 筛选" onclick="allocSort('+i+')">'+
+      return '<th data-c="'+i+'" class="'+cls.join(' ')+'" title="点击筛选" onclick="toggleAFilter(event,'+i+')">'+
         esc(c.t)+'<i class="fmark" onmousedown="event.stopPropagation()" onclick="event.stopPropagation();toggleAFilter(event,'+i+')"></i></th>';
     }).join('');
 
@@ -3345,12 +3522,6 @@ function aFreezeCols(){
 }
 function aPageGo(p){aPage=p;aSel=null;renderAlloc()}
 function allocToggleAll(on){document.querySelectorAll('#allocBody .a-cb').forEach(cb=>{if(!cb.disabled)cb.checked=on})}
-function allocSort(ci){
-  if(aSortCi!==ci){aSortCi=ci;aSortDir=1}
-  else if(aSortDir===1)aSortDir=-1;
-  else{aSortCi=-1;aSortDir=1}
-  renderAlloc();
-}
 function allocAddRow(){
   aAll.push({id:uid(),storeCode:'',storeName:'',recipient:'',phone:'',address:'',weight:'',cells:{}});
   aSave();aFilter='';aPage=Math.max(1,Math.ceil(aAll.length/aPageSize));
