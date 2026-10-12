@@ -151,7 +151,7 @@ tr:hover{background:#f8f9fc}
 .cross-table td.area-auth{border-left-color:#f9ab00;font-weight:600;color:#8a5a00}
 .cross-table td.area-mijia{border-left-color:#34a853;font-weight:600;color:#1e7d37}
 .cross-table td.area-other{border-left-color:#9aa0a6;color:#5f6368}
-.dash-cols{display:grid;grid-template-columns:35fr 65fr;gap:16px;align-items:start;margin-bottom:16px}
+.dash-cols{display:grid;grid-template-columns:35fr 65fr;gap:16px;align-items:stretch;margin-bottom:16px}
 #matDetail table{font-size:12px;width:100%;border-collapse:separate;border-spacing:0}
 #matDetail th{background:#f7f8fa;padding:8px 10px;text-align:center;font-size:12px;color:#5f6368;font-weight:600;border-bottom:2px solid #e3e6ea;position:sticky;top:0;z-index:2}
 #matDetail td{padding:7px 10px;text-align:center;border-bottom:1px solid #f0f0f0;color:#202124;vertical-align:middle}
@@ -264,20 +264,14 @@ tr:hover{background:#f8f9fc}
 .pager button:hover{border-color:#1a73e8;color:#1a73e8}
 .pager button:disabled{opacity:.4;cursor:default}
 .cb-col{text-align:center;width:32px}
-/* 选区：格子之间不留蓝边框，只在整个选区最外围画一圈蓝框。
-   做法：每个选中格放一个绝对定位的填充层，四边都内缩 2px（相邻格的内缩叠在一起，
-   中间就出现一条 4px 白缝）；再给四条边界格子各画一条贴边的 2px 实线，拼成外框。
+/* 选区：选中的格子连成一块连续的浅蓝填充，只在整个选区最外围画一圈闭合的 2px 蓝框，
+   格与格之间不留白缝（填充铺满单元格，相邻格自然相接）。
    注意：物料分配表左侧列是内联的 position:sticky（冻结列），定位类不能盖掉它，
-   所以这里只对没有 frozen 的格子加 relative。 */
+   所以这里只对没有 frozen 的格子加 relative；frozen 格子靠背景色参与，外框由相邻格补齐。 */
 #contactBody td.csel,#allocBody td.csel:not(.frozen){position:relative}
 #contactBody td.csel,#allocBody td.csel{background:#d2e3fc!important}
 #contactBody td.csel input,#allocBody td.csel input{background:rgba(255,255,255,.35)}
-#contactBody td.csel::before,#allocBody td.csel::before{
-  content:'';position:absolute;inset:2px;background:rgba(26,115,232,.16);pointer-events:none;z-index:1}
-#contactBody td.csel.sel-t::before,#allocBody td.csel.sel-t::before{top:0}
-#contactBody td.csel.sel-b::before,#allocBody td.csel.sel-b::before{bottom:0}
-#contactBody td.csel.sel-l::before,#allocBody td.csel.sel-l::before{left:0}
-#contactBody td.csel.sel-r::before,#allocBody td.csel.sel-r::before{right:0}
+/* 边框线：只画在选区外缘，2px 实线，闭合成一个完整矩形 */
 #contactBody td.csel.sel-t::after,#allocBody td.csel.sel-t::after,
 #contactBody td.csel.sel-b::after,#allocBody td.csel.sel-b::after,
 #contactBody td.csel.sel-l::after,#allocBody td.csel.sel-l::after,
@@ -580,7 +574,7 @@ iframe[id^="sb__open-sandbox"]{display:none!important}
   <div class="page active" id="page-alloc">
     <div class="toolbar">
       <button class="btn btn-gray" data-lk="btnAllocFill" onclick="allocBatchFill()">批量填数</button>
-      <button class="btn btn-primary" data-lk="btnSysAlloc" onclick="openSysAllocModal()">系统内分配</button>
+      <button class="btn btn-primary" data-lk="btnSysAlloc" onclick="openMatModal()">系统内分配</button>
       <button class="btn btn-outline" data-lk="btnImportAlloc" onclick="openImportAlloc()">按导入名单分配</button>
       <input type="file" accept=".xlsx,.xls,.csv" id="allocRosterFile" style="display:none">
       <button class="btn btn-gray" data-lk="btnAddRowAlloc" onclick="allocAddRow()">+ 手动加行</button>
@@ -3133,7 +3127,7 @@ function renderDashboard(){
     actStoreMap[r.activity].add(r.matchedStore);
     actSessionMap[r.activity]=(actSessionMap[r.activity]||0)+1;
     if(!isPhysicalGift(r.productName))continue;
-    const q=numOf(r.qty);
+    const q=giftQtyOf(r);
     if(q>0){actGiftMap[r.activity]=(actGiftMap[r.activity]||0)+q;giftTotal+=q}
   }
   const actNames=viewActs.map(a=>a.name);
@@ -3187,7 +3181,7 @@ function renderDashboard(){
     const key=area+'||'+r.activity;
     if(!crossData[key])crossData[key]=new Set();
     crossData[key].add(r.matchedStore);
-    const q=numOf(r.qty);
+    const q=giftQtyOf(r);
     if(q>0)crossGift[key]=(crossGift[key]||0)+q;
   }
 
@@ -3231,7 +3225,7 @@ function renderDashboard(){
   };
   for(const r of withAct){
     const pn=String(r.productName==null?'':r.productName).trim();
-    const q=numOf(r.qty);
+    const q=giftQtyOf(r);
     const kind=(matKindOf[pn]!==undefined?matKindOf[pn]:(matKindOf[String(r.productCode||'').trim()]||'实物礼品'));
     const a=bump(pn||('code:'+String(r.productCode||'').trim()),pn,kind,q);
     if(a&&r.matchedStore)a.stores.add(r.matchedStore);
@@ -3406,6 +3400,19 @@ function numOf(v){
   return isFinite(n)?n:0;
 }
 function fmtNum(v){if(typeof v!=='number'||!isFinite(v))return '';return String(Math.round(v*1e6)/1e6)}
+// 取物料「发货规格」（spec，老数据兜底 step）；查不到按 1（无特殊规格）
+function specOf(name){
+  const n=String(name==null?'':name).trim();
+  for(const m of DB.materials){
+    if(String(m.name||'').trim()===n){
+      const s=m.spec!=null&&m.spec!==''?m.spec:(m.step!=null?m.step:1);
+      return numOf(s)>0?numOf(s):1;
+    }
+  }
+  return 1;
+}
+// 礼品发放数 = 发货规格 × 门店发货数量（r.qty），见「发货规格」说明（895 行）
+function giftQtyOf(r){return specOf(r.productName)*numOf(r.qty)}
 
 function allocCols(){
   if(aColsCache)return aColsCache;
@@ -3885,6 +3892,9 @@ function renderAlloc(){
   document.getElementById('allocPager').innerHTML=pager;
   aPaintSel();
   aFreezeCols();
+  // head.innerHTML 每次重建都会抹掉拖拽把手，必须重新挂；把手挂在单元格右缘，避开 th 里的筛选小箭头
+  wireColResize('alloc','allocHead','input[type=checkbox],.cb-col');
+  applyColwTo('alloc');
 }
 // ===== 四个数据表统一的「拖拽调列宽」：宽度存 DB.colw（本机 + 云同步 + 备份恢复）=====
 // 键 = 列在表头里的序号（0 起）。复选框列不参与。拖完落一次库，避免拖动过程刷屏。
