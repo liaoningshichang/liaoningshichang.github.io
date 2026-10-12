@@ -44,8 +44,8 @@ td{padding:0;border-bottom:1px solid #f0f0f0;white-space:nowrap}
 /* 悬停：底色变浅蓝，字色不变（四表完全一致） */
 #allocWrap th[data-c]:hover,#contactWrap th[data-c]:hover,#previewHead th[data-col]:hover,.mat-scroll th:hover{background:#e8f0fe}
 /* 定宽布局：列宽由 <col> 决定，拖动即时跟手；内容超出用省略号，可缩到比内容窄 */
-#allocWrap table,#contactWrap table,#previewWrap table,.mat-scroll table{table-layout:fixed}
-#allocWrap td,#contactWrap td,#previewWrap td,.mat-scroll td{overflow:hidden;text-overflow:ellipsis}
+#allocWrap table,#contactWrap table,#previewWrap table,.mat-scroll table,#actSummaryBody table,#crossTableBody table,#matDetailBody table{table-layout:fixed}
+#allocWrap td,#contactWrap td,#previewWrap td,.mat-scroll td,#actSummaryBody td,#crossTableBody td,#matDetailBody td{overflow:hidden;text-overflow:ellipsis}
 /* 列宽拖拽把手：贴在每个可拖 th 的右缘，常驻可见，拖动时加粗变色 */
 .rsz{position:absolute;top:0;right:0;width:8px;height:100%;cursor:col-resize;z-index:20;user-select:none;touch-action:none;background:linear-gradient(90deg,rgba(0,0,0,0) 0%,rgba(0,0,0,0) 45%,rgba(0,0,0,.18) 50%,rgba(0,0,0,0) 55%,rgba(0,0,0,0) 100%);transition:background .12s}
 .rsz:hover,.rsz.rsz-on{background:linear-gradient(90deg,rgba(0,0,0,0) 0%,rgba(0,0,0,0) 46%,#1a73e8 50%,rgba(0,0,0,0) 54%,rgba(0,0,0,0) 100%)}
@@ -53,7 +53,7 @@ td{padding:0;border-bottom:1px solid #f0f0f0;white-space:nowrap}
 body.rsz-active{cursor:col-resize!important;user-select:none!important}
 body.rsz-active *{cursor:col-resize!important}
 /* 表头留出把手位，并给筛选箭头让开，避免重叠。sticky 本身就是定位祖先，能正确锚定 .rsz，不要改成 relative（会失去粘顶） */
-#previewHead th[data-col].rsz-idx,#contactWrap th.rsz-idx,#allocHead th.rsz-idx,.mat-scroll th.rsz-idx{padding-right:14px}
+#previewHead th[data-col].rsz-idx,#contactWrap th.rsz-idx,#allocHead th.rsz-idx,.mat-scroll th.rsz-idx,#dashSumHead th.rsz-idx,#dashCrossHead th.rsz-idx,#dashMatHead th.rsz-idx{padding-right:14px}
 #previewHead th.rsz-idx .fmark{right:10px}
 #allocWrap th[data-c].rsz-idx .fmark{right:10px}
 .chart-box h4 .legend{float:right;font-size:12px;font-weight:400;color:#666;display:flex;gap:12px;align-items:center}
@@ -211,9 +211,9 @@ tr:hover{background:#f8f9fc}
 .ch-rev-from{color:#999;text-decoration:line-through;word-break:break-all}
 .ch-rev-to{color:#188038;font-weight:600;word-break:break-all}
 .ch-rev-act{font-size:12px;padding:3px 4px;max-width:100%}
-.ch-hist-tbl{width:100%;border-collapse:collapse;font-size:12.5px}
+.ch-hist-tbl{width:100%;border-collapse:collapse;font-size:12.5px;table-layout:fixed}
 .ch-hist-tbl th{background:#f8f9fa;text-align:left;padding:7px 8px;border-bottom:1px solid #e0e0e0;position:sticky;top:0;white-space:nowrap}
-.ch-hist-tbl td{padding:7px 8px;border-bottom:1px solid #f2f2f2;vertical-align:top;word-break:break-all}
+.ch-hist-tbl td{padding:7px 8px;border-bottom:1px solid #f2f2f2;vertical-align:top;word-break:break-all;overflow:hidden;text-overflow:ellipsis}
 .ch-h-store{font-weight:600;white-space:nowrap}
 .ch-h-code{display:block;font-weight:400;color:#999;font-size:11px}
 .ch-h-from{color:#999;text-decoration:line-through}
@@ -1673,7 +1673,7 @@ function renderChHistList(pre){
   let list=DB.contactHistory.slice();
   if(q)list=list.filter(h=>[h.storeCode,h.storeName,h.source,h.fieldLabel,h.from,h.to,h.mode,h.date].some(v=>String(v||'').toLowerCase().includes(q)));
   if(!list.length){el.innerHTML='<div class="ch-empty">'+(q?'没有匹配的记录':'还没有历史记录。导入店长确认过的活动门店表后，变动会自动记在这里。')+'</div>';return}
-  el.innerHTML='<table class="ch-hist-tbl"><thead><tr>'+
+  el.innerHTML='<table class="ch-hist-tbl"><thead><tr id="chHistHead">'+
     '<th>门店</th><th>字段</th><th>原值</th><th>新值</th><th>信息来源</th><th>更新时间</th></tr></thead><tbody>'+
     list.slice(0,300).map(h=>`<tr>
       <td class="ch-h-store">${esc(h.storeName||h.storeCode)}<span class="ch-h-code">${esc(h.storeCode||'')}</span></td>
@@ -1683,6 +1683,7 @@ function renderChHistList(pre){
       <td class="ch-h-src">${esc(h.source||'—')}</td>
       <td class="ch-h-time">${esc(h.date||'')}${h.ts?'<span class="ch-h-ms">'+new Date(h.ts).toLocaleTimeString('zh-CN')+'</span>':''}</td>
     </tr>`).join('')+'</tbody></table>'+(list.length>300?'<div class="ch-empty">仅显示前 300 条，请搜索缩小范围</div>':'');
+  wireColResize('chHist','chHistHead',null);
 }
 // 只刷新门店信息表最右侧的"历史记录"计数列（写入后不用整表重渲染）
 function renderContactHistCells(){
@@ -3148,7 +3149,7 @@ function renderDashboard(){
   applyLabels();
 
   // 市场活动汇总表
-  let sumHtml='<table><thead><tr><th>活动名称</th><th>参与门店数</th><th>礼品发放数</th><th>起止日期</th><th>零售通扫码名称</th></tr></thead><tbody>';
+  let sumHtml='<table><thead><tr id="dashSumHead"><th>活动名称</th><th>参与门店数</th><th>礼品发放数</th><th>起止日期</th><th>零售通扫码名称</th></tr></thead><tbody>';
   for(const a of viewActs){
     const stores=actStoreMap[a.name]?actStoreMap[a.name].size:0;
     const gifts=giftOf(a.name);
@@ -3190,7 +3191,7 @@ function renderDashboard(){
     if(q>0)crossGift[key]=(crossGift[key]||0)+q;
   }
 
-  let html='<table><thead><tr><th>小区/区域</th><th class="x-total">门店数量</th><th>礼品发放数</th>'+actNames.map(a=>`<th>${esc(a)}</th>`).join('')+'</tr></thead><tbody>';
+  let html='<table><thead><tr id="dashCrossHead"><th>小区/区域</th><th class="x-total">门店数量</th><th>礼品发放数</th>'+actNames.map(a=>`<th>${esc(a)}</th>`).join('')+'</tr></thead><tbody>';
   const areaType=area=>{
     if(area.includes('授权'))return 'auth';
     if(area.includes('专卖')||area.includes('米家'))return 'mijia';
@@ -3256,7 +3257,7 @@ function renderDashboard(){
         </tr>`;
       }).join('');
       mEl.innerHTML=`<table>
-        <thead><tr>
+        <thead><tr id="dashMatHead">
           <th class="l" style="min-width:200px">物料名称</th>
           <th style="min-width:96px">种类</th>
           <th class="r" style="min-width:90px">涉及门店数</th>
@@ -3275,9 +3276,11 @@ function renderDashboard(){
     }
   }
   updateDashChip();
+  // 汇总页三张表每次重渲染都会重建 DOM（colgroup 也没了），必须在这里重新挂拖拽把手
+  wireColResize('dashSum','dashSumHead',null);
+  wireColResize('dashCross','dashCrossHead',null);
+  wireColResize('dashMat','dashMatHead',null);
 }
-
-// ==================== 概览 ====================
 function renderLogs(){
   const logs=DB.logs;
   const el=document.getElementById('logList');
@@ -3886,7 +3889,7 @@ function renderAlloc(){
 // ===== 四个数据表统一的「拖拽调列宽」：宽度存 DB.colw（本机 + 云同步 + 备份恢复）=====
 // 键 = 列在表头里的序号（0 起）。复选框列不参与。拖完落一次库，避免拖动过程刷屏。
 const COLW_MIN=16;
-const COLW_TABLES=['alloc','preview','contact','mat'];
+const COLW_TABLES=['alloc','preview','contact','mat','dashSum','dashCross','dashMat','chHist'];
 // 每张表的默认列宽（首次渲染时按内容实测，缓存；用户没拖过的列用它）
 const colwDefaults={};
 function colwGet(t){
@@ -3926,7 +3929,7 @@ function colwEnsureCols(table,head){
 }
 // 应用列宽到 <col>（拖动即时调用）。table-layout:fixed 下右侧列会自动跟手。
 function applyColwTo(t){
-  const headId={alloc:'allocHead',preview:'previewHead',contact:'contactHead',mat:'matHead'}[t];
+  const headId={alloc:'allocHead',preview:'previewHead',contact:'contactHead',mat:'matHead',dashSum:'dashSumHead',dashCross:'dashCrossHead',dashMat:'dashMatHead',chHist:'chHistHead'}[t];
   const head=document.getElementById(headId);
   if(!head)return;
   const table=head.closest('table');
@@ -4000,6 +4003,9 @@ function initColResizeAll(){
   wireColResize('preview','previewHead','input[type=checkbox],.cb-col');
   wireColResize('contact','contactHead','input[type=checkbox],.cb-col');
   wireColResize('mat','matHead',null);
+  wireColResize('dashSum','dashSumHead',null);
+  wireColResize('dashCross','dashCrossHead',null);
+  wireColResize('dashMat','dashMatHead',null);
   applyColw();
 }
 // 冻结列：按实测宽度累计 left（量不到宽度时用兜底值），行首复选框 + 6 个固定列
