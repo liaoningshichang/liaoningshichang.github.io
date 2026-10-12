@@ -35,14 +35,17 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Micr
 table{width:100%;border-collapse:collapse;font-size:13px}
 th{background:#f8f9fa;padding:8px 10px;text-align:left;font-weight:600;border-bottom:2px solid #e0e0e0;white-space:nowrap;position:sticky;top:0;z-index:1}
 td{padding:0;border-bottom:1px solid #f0f0f0;white-space:nowrap}
-/* ===== 四个数据表统一的表头可点样式（以物流管理预览表为准：hover 底色+文字变蓝）+ 拖拽调列宽 ===== */
+/* ===== 四个数据表统一的表头样式（以物流管理预览表为准：hover 只变浅蓝底，字保持黑）+ 拖拽调列宽 ===== */
 /* 统一表头基础：与预览表一致的可点/选中态。各表自身规则不得再覆盖 hover。 */
 #allocWrap th[data-c],#contactWrap th[data-c],#previewHead th[data-col],.mat-scroll th{
   cursor:pointer;user-select:none;position:relative;white-space:nowrap;
   background:#f8f9fa;padding:7px 8px;font-size:12px;text-align:left;font-weight:600;
 }
-#allocWrap th[data-c]:hover,#contactWrap th[data-c]:hover,#previewHead th[data-col]:hover,.mat-scroll th:hover{background:#e8f0fe;color:#1a73e8}
-#allocWrap th[data-c]:hover .fmark,#contactWrap th[data-c]:hover .fmark,#previewHead th[data-col]:hover .fmark{color:#1a73e8}
+/* 悬停：底色变浅蓝，字色不变（四表完全一致） */
+#allocWrap th[data-c]:hover,#contactWrap th[data-c]:hover,#previewHead th[data-col]:hover,.mat-scroll th:hover{background:#e8f0fe}
+/* 定宽布局：列宽由 <col> 决定，拖动即时跟手；内容超出用省略号，可缩到比内容窄 */
+#allocWrap table,#contactWrap table,#previewWrap table,.mat-scroll table{table-layout:fixed}
+#allocWrap td,#contactWrap td,#previewWrap td,.mat-scroll td{overflow:hidden;text-overflow:ellipsis}
 /* 列宽拖拽把手：贴在每个可拖 th 的右缘，常驻可见，拖动时加粗变色 */
 .rsz{position:absolute;top:0;right:0;width:8px;height:100%;cursor:col-resize;z-index:20;user-select:none;touch-action:none;background:linear-gradient(90deg,rgba(0,0,0,0) 0%,rgba(0,0,0,0) 45%,rgba(0,0,0,.18) 50%,rgba(0,0,0,0) 55%,rgba(0,0,0,0) 100%);transition:background .12s}
 .rsz:hover,.rsz.rsz-on{background:linear-gradient(90deg,rgba(0,0,0,0) 0%,rgba(0,0,0,0) 46%,#1a73e8 50%,rgba(0,0,0,0) 54%,rgba(0,0,0,0) 100%)}
@@ -74,7 +77,7 @@ body.rsz-active *{cursor:col-resize!important}
 .xf-btns{display:flex;gap:6px;justify-content:flex-end;margin-top:8px}
 .xf-btns button{padding:4px 12px;font-size:12px;border-radius:4px;border:1px solid #ddd;background:#fff;cursor:pointer}
 .xf-btns .ok{background:#1a73e8;color:#fff;border-color:#1a73e8}
-td input,td select{width:100%;border:none;padding:6px 8px;font-size:13px;background:transparent;outline:none;font-family:inherit}
+td input,td select{width:100%;max-width:100%;box-sizing:border-box;border:none;padding:6px 8px;font-size:13px;background:transparent;outline:none;font-family:inherit}
 td input:focus,td select:focus{background:#e8f0fe;box-shadow:inset 0 0 0 2px #1a73e8}
 td input::placeholder{color:#bbb}
 td .cell-text{padding:6px 8px;min-height:30px;cursor:default}
@@ -2481,18 +2484,16 @@ function renderPreview(){
     shown++;
     const st=r.matchedStore?'<span class="badge badge-green">已匹配</span>':'<span class="badge badge-red">未匹配</span>';
     const code=storeCodeOf(r.matchedStore);
-    const wP=Math.min(300,Math.max(110,textW(r.productName)*7+24));
-    const wS=Math.min(300,Math.max(150,textW(r.matchedStore||'选择或输入门店')*7+24));
     return `<tr data-i="${i}">
       <td class="cb-col"><input type="checkbox" class="p-cb" data-i="${i}" onchange="updateSelCount()"></td>
       <td style="font-family:monospace;font-size:11px;white-space:nowrap">${esc(r.tracking)}</td>
-      <td><input data-f="productName" data-i="${i}" list="matOpts" value="${esc(r.productName)}" placeholder="物料名称" style="font-size:12px;padding:5px 6px;width:${wP}px"></td>
+      <td><input data-f="productName" data-i="${i}" list="matOpts" value="${esc(r.productName)}" placeholder="物料名称" style="font-size:12px;padding:5px 6px"></td>
       <td style="text-align:center">${r.qty}</td>
       <td>${esc(r.name)}</td>
       <td style="font-size:11px">${esc(r.phone)}</td>
       <td class="p-code" data-code="${esc(code)}">${esc(code)}</td>
       <td class="${r.matchedStore?'cell-matched':'cell-unmatched'}">
-        <input list="storeOpts" data-f="matchedStore" data-i="${i}" value="${esc(r.matchedStore)}" placeholder="选择或输入门店" style="font-size:12px;padding:5px 6px;width:${wS}px">
+        <input list="storeOpts" data-f="matchedStore" data-i="${i}" value="${esc(r.matchedStore)}" placeholder="选择或输入门店" style="font-size:12px;padding:5px 6px">
       </td>
       <td>
         <select data-f="activity" data-i="${i}">${actOpts.replace(`value="${esc(r.activity)}"`,`value="${esc(r.activity)}" selected`)}</select>
@@ -2532,7 +2533,6 @@ document.getElementById('previewBody').addEventListener('change',function(e){
       if(codeCell){codeCell.textContent=code;codeCell.setAttribute('data-code',code)}
       tr.children[7].className=v?'cell-matched':'cell-unmatched';
       tr.children[9].innerHTML=v?'<span class="badge badge-green">已匹配</span>':'<span class="badge badge-red">未匹配</span>';
-      if(el.dataset){const wS=Math.min(300,Math.max(150,textW(v||'选择或输入门店')*7+24));el.style.width=wS+'px'}
     }
   }
   if(f==='productName'){
@@ -3518,12 +3518,13 @@ function renderAlloc(){
 // 键 = 列在表头里的序号（0 起）。复选框列不参与。拖完落一次库，避免拖动过程刷屏。
 const COLW_MIN=48;
 const COLW_TABLES=['alloc','preview','contact','mat'];
-function colwMap(t){
+// 每张表的默认列宽（首次渲染时按内容实测，缓存；用户没拖过的列用它）
+const colwDefaults={};
+function colwGet(t){
   const all=DB.colw||{};
   const m=all[t]&&typeof all[t]==='object'?all[t]:{};
   const out={};Object.keys(m).forEach(k=>{const n=Math.round(Number(m[k]));if(n>=COLW_MIN)out[k]=n});return out;
 }
-function colwPx(t,idx){const m=colwMap(t);return m[idx]||''}
 function colwSet(t,idx,px){
   const all=DB.colw||{};
   const m=all[t]&&typeof all[t]==='object'?Object.assign({},all[t]):{};
@@ -3535,23 +3536,62 @@ function colwReset(t,idx){
   const m=all[t]&&typeof all[t]==='object'?Object.assign({},all[t]):{};
   delete m[idx];all[t]=m;DB.colw=all;
 }
-function applyColw(){
-  [['alloc','allocHead'],['preview','previewHead'],['contact','contactHead'],['mat','matHead']].forEach(function(pair){
-    const t=pair[0],head=document.getElementById(pair[1]);
-    if(!head)return;
-    const m=colwMap(t);
-    Array.prototype.forEach.call(head.children,function(th,i){
-      const w=m[i]||'';
-      th.style.width=w?w+'px':'';
-      th.style.minWidth=w?w+'px':'';
-    });
-  });
-  if(document.getElementById('allocWrap'))aFreezeCols();
+// 取第 i 列应有宽度：用户拖过的用它，否则用首次实测的默认值，都没有则 0（表示不设）
+function colwWidth(t,i){
+  const m=colwGet(t);
+  if(m[i])return m[i];
+  const d=colwDefaults[t];
+  return(d&&d[i])?d[i]:0;
 }
+// 确保该表有 <colgroup>，且 <col> 数量与表头一致；返回 colgroup
+function colwEnsureCols(table,head){
+  let cg=table.querySelector('colgroup[data-cg]');
+  const n=head.children.length;
+  if(!cg){
+    cg=document.createElement('colgroup');cg.setAttribute('data-cg','1');
+    table.insertBefore(cg,table.firstChild);
+  }
+  while(cg.children.length<n){cg.appendChild(document.createElement('col'))}
+  while(cg.children.length>n){cg.removeChild(cg.lastChild)}
+  return cg;
+}
+// 应用列宽到 <col>（拖动即时调用）。table-layout:fixed 下右侧列会自动跟手。
+function applyColwTo(t){
+  const headId={alloc:'allocHead',preview:'previewHead',contact:'contactHead',mat:'matHead'}[t];
+  const head=document.getElementById(headId);
+  if(!head)return;
+  const table=head.closest('table');
+  if(!table)return;
+  const n=head.children.length;
+  // 首次：必须在「自动布局 + 无 colgroup」下量真实内容宽度。
+  // 定宽布局下量会得到等宽（列宽未知时浏览器平均分），所以先临时切回自动布局再量。
+  if(!colwDefaults[t]&&n){
+    table.style.tableLayout='auto';
+    const d={};let any=false;
+    for(let i=0;i<n;i++){
+      const w=head.children[i].getBoundingClientRect().width;
+      if(w>0){d[i]=Math.round(w);any=true}
+    }
+    table.style.tableLayout='';
+    if(any)colwDefaults[t]=d;
+  }
+  const cg=colwEnsureCols(table,head);
+  for(let i=0;i<n;i++){
+    const w=colwWidth(t,i);
+    cg.children[i].style.width=w?w+'px':'';
+  }
+  if(t==='alloc'&&document.getElementById('allocWrap'))aFreezeCols();
+}
+function applyColw(){COLW_TABLES.forEach(applyColwTo)}
 // 给表头挂上拖拽把手；ignoreSel=该列不可拖（如复选框）。headId 必须是 <tr>。
+// 拖动改的是 <colgroup> 里对应 <col> 的宽度 —— table-layout:fixed 下右侧列会即时跟手，
+// 且能缩到比单元格内容更窄（内容用省略号截断）。
 function wireColResize(t,headId,ignoreSel){
   const head=document.getElementById(headId);
   if(!head)return;
+  const table=head.closest('table');
+  if(!table)return;
+  const cg=colwEnsureCols(table,head);
   Array.prototype.forEach.call(head.children,function(th,i){
     if(th.getAttribute('data-crw')==='1')return;
     if(ignoreSel&&th.matches&&th.matches(ignoreSel))return;
@@ -3559,14 +3599,20 @@ function wireColResize(t,headId,ignoreSel){
     const h=document.createElement('div');h.className='rsz';h.title='拖动调整列宽（双击恢复默认）';th.appendChild(h);
     h.addEventListener('mousedown',function(e){
       e.preventDefault();e.stopPropagation();
-      const startX=e.clientX,startW=th.offsetWidth||th.getBoundingClientRect().width;
+      const col=cg.children[i];
+      const startX=e.clientX,startW=colwWidth(t,i)||th.getBoundingClientRect().width;
       if(!startW)return;
       document.body.classList.add('rsz-active');h.classList.add('rsz-on');
-      function mv(ev){const w=Math.max(COLW_MIN,startW+(ev.clientX-startX));th.style.width=w+'px';th.style.minWidth=w+'px'}
+      function mv(ev){
+        const w=Math.max(COLW_MIN,startW+(ev.clientX-startX));
+        col.style.width=w+'px';
+        if(t==='alloc')aFreezeCols();
+      }
       function up(ev){
         document.removeEventListener('mousemove',mv);document.removeEventListener('mouseup',up);
         document.body.classList.remove('rsz-active');h.classList.remove('rsz-on');
-        const w=Math.max(COLW_MIN,startW+(ev.clientX-startX));th.style.width=w+'px';th.style.minWidth=w+'px';
+        const w=Math.max(COLW_MIN,startW+(ev.clientX-startX));
+        col.style.width=w+'px';
         colwSet(t,i,w);
         if(t==='alloc')aFreezeCols();
       }
@@ -3574,9 +3620,9 @@ function wireColResize(t,headId,ignoreSel){
     });
     h.addEventListener('dblclick',function(e){
       e.preventDefault();e.stopPropagation();
-      th.style.width='';th.style.minWidth='';
+      // 只清掉用户拖出来的值，回到首次实测的默认宽度（不要删默认值，否则该列会变成等宽平分）
       colwReset(t,i);
-      if(t==='alloc')aFreezeCols();
+      applyColwTo(t);
     });
   });
 }
