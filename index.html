@@ -514,10 +514,6 @@ iframe[id^="sb__open-sandbox"]{display:none!important}
   <!-- ========== 物料分配 ========== -->
   <div class="page active" id="page-alloc">
     <div class="toolbar">
-      <button class="btn btn-primary" data-lk="btnAddMaterial" onclick="openMatModal(-1)">+ 新增物料</button>
-      <button class="btn btn-outline" data-lk="btnAllocImport" onclick="document.getElementById('allocWeightFile').click()">导入权重表</button>
-      <input type="file" id="allocWeightFile" accept=".xlsx,.xls,.csv" style="display:none">
-      <button class="btn btn-outline" data-lk="btnAutoAlloc" onclick="openAutoAlloc()">自动分配</button>
       <button class="btn btn-gray" data-lk="btnAllocFill" onclick="allocBatchFill()">批量填数</button>
       <button class="btn btn-danger" data-lk="btnAllocDel" onclick="allocDeleteRows()">删除选中行</button>
       <button class="btn btn-outline" data-lk="btnPickStore" onclick="openStorePick()">从通讯录选门店</button>
@@ -782,6 +778,23 @@ iframe[id^="sb__open-sandbox"]{display:none!important}
   </div>
 </div>
 
+<!-- 物料分配：新建物料后按活动门店数量平均分配 -->
+<div class="modal-overlay" id="matDistModal">
+  <div class="modal" style="max-width:420px">
+    <h3>平均分配「<span id="mdMatName"></span>」</h3>
+    <p style="font-size:13px;color:#555;margin-bottom:10px">市场下发共 <b id="mdTotal"></b> 个。输入本次活动的门店数量，自动平均分配到下方分配表的每一行。</p>
+    <div class="form-group">
+      <label>活动门店数量 *</label>
+      <input id="mdStores" inputmode="numeric" placeholder="如：20" oninput="mdPreview()">
+    </div>
+    <div class="aa-preview" id="mdPreviewBox"></div>
+    <div class="modal-actions">
+      <button class="btn btn-gray" onclick="closeModal('matDistModal')">跳过</button>
+      <button class="btn btn-primary" id="mdApplyBtn" onclick="mdApply()">平均分配</button>
+    </div>
+  </div>
+</div>
+
 <!-- 物料分配：从通讯录选门店 -->
 <div class="modal-overlay" id="storePickModal">
   <div class="modal" style="max-width:560px">
@@ -802,80 +815,6 @@ iframe[id^="sb__open-sandbox"]{display:none!important}
   </div>
 </div>
 
-<!-- 物料分配：导入权重表 -->
-<div class="modal-overlay" id="weightModal">
-  <div class="modal" style="max-width:600px">
-    <h3>导入权重表</h3>
-    <div id="wiInfo" style="font-size:12px;color:#555;background:#f5f5f5;padding:8px 10px;border-radius:6px;margin-bottom:12px;word-break:break-all"></div>
-    <div class="form-group">
-      <label>① 匹配列（用来对应分配表里的门店）</label>
-      <select id="wiKey" onchange="wiPreview()"></select>
-    </div>
-    <div class="form-group">
-      <label>② 权重公式（点下方列名插入，如：<code>加粉卡片长按UV</code> 或 <code>[UV] * 2</code>）</label>
-      <input id="wiFormula" placeholder="支持 + - * / ( ) 与列名，留空表示取第一列数值" oninput="wiPreview()">
-    </div>
-    <div class="form-group">
-      <label>可选列（点击插入公式）</label>
-      <div class="chip-list" id="wiChips"></div>
-    </div>
-    <label style="display:flex;gap:6px;align-items:center;font-size:13px;color:#555;cursor:pointer;margin-bottom:10px">
-      <input type="checkbox" id="wiNorm" onchange="wiPreview()"> 归一化（结果 ÷ 全表合计，写入 0~1 的比例）
-    </label>
-    <div class="aa-preview" id="wiPreview">填写后显示前几行计算结果</div>
-    <div class="modal-actions">
-      <button class="btn btn-gray" onclick="closeModal('weightModal')">取消</button>
-      <button class="btn btn-primary" onclick="wiApply()">写入权重</button>
-    </div>
-  </div>
-</div>
-
-<!-- 物料分配：自动分配（可选，不点即不生效） -->
-<div class="modal-overlay" id="autoAllocModal">
-  <div class="modal" style="max-width:560px">
-    <h3>自动分配（可选）</h3>
-    <div class="aa-radio">
-      <label><input type="radio" name="aaMode" value="none" checked onchange="aaModeChange()">
-        <span><b>不自动分配（默认）</b><span>保留当前所有数值，不做任何计算。手动录入 / 粘贴数据完全不受影响。</span></span></label>
-      <label><input type="radio" name="aaMode" value="weight" onchange="aaModeChange()">
-        <span><b>按权重分配</b><span>按「权重」列把分配总数摊到各行（可从权重表导入）。</span></span></label>
-      <label><input type="radio" name="aaMode" value="even" onchange="aaModeChange()">
-        <span><b>均分</b><span>忽略权重，各行平均分配（权重列全空时才建议用）。</span></span></label>
-    </div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <div class="form-group" style="flex:2;min-width:170px">
-        <label>物料</label>
-        <select id="aaMat" onchange="aaMatChange()"></select>
-      </div>
-      <div class="form-group" style="flex:1;min-width:120px">
-        <label>分配总数</label>
-        <input id="aaTotal" inputmode="numeric" placeholder="0" oninput="aaPreview()">
-      </div>
-    </div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
-      <div class="form-group" style="flex:1;min-width:130px">
-        <label>箱规/步长</label>
-        <input id="aaStep" inputmode="numeric" placeholder="1" oninput="aaPreview()">
-      </div>
-      <label style="display:flex;gap:5px;align-items:center;font-size:13px;color:#555;cursor:pointer;padding-bottom:9px;white-space:nowrap">
-        <input type="checkbox" id="aaStepOn" onchange="aaPreview()"> 按步长取整（余数留作缓冲）
-      </label>
-    </div>
-    <div class="form-group" style="margin-top:10px">
-      <label>范围</label>
-      <select id="aaScope" onchange="aaPreview()">
-        <option value="all">当前列表全部行</option>
-        <option value="sel">仅勾选的行</option>
-      </select>
-    </div>
-    <div class="aa-preview" id="aaPreview" style="margin-bottom:8px"></div>
-    <div class="modal-actions">
-      <button class="btn btn-gray" id="aaUndo" onclick="aaUndo()" style="margin-right:auto">撤销上次自动分配</button>
-      <button class="btn btn-gray" onclick="closeModal('autoAllocModal')">取消</button>
-      <button class="btn btn-primary" id="aaApply" onclick="aaApply()">应用（先看预览）</button>
-    </div>
-  </div>
-</div>
 </div><!-- /appRoot -->
 <div class="load-tip" id="loadTip"><span class="load-spin" id="loadTipSpin"></span><span id="loadTipText">加载中…</span></div>
 
@@ -1889,10 +1828,7 @@ const LABEL_DEFS=[
   ['btnImportContacts','门店页「导入Excel」按钮','导入Excel'],
   ['contactHint','门店页编辑提示','点击单元格编辑，拖动框选后 Ctrl+C / Ctrl+V 复制粘贴'],
   ['tabAlloc','「物料分配」标签页','物料分配'],
-  ['btnAddMaterial','物料页「新增物料」按钮','+ 新增物料'],
   ['btnAddMaterial2','台账「新增物料」按钮','+ 新增物料'],
-  ['btnAllocImport','物料页「导入权重表」按钮','导入权重表'],
-  ['btnAutoAlloc','物料页「自动分配」按钮','自动分配'],
   ['btnAllocFill','物料页「批量填数」按钮','批量填数'],
   ['btnAllocDel','物料页「删除选中行」按钮','删除选中行'],
   ['btnPickStore','物料页「从通讯录选门店」按钮','从通讯录选门店'],
@@ -3418,6 +3354,11 @@ function saveMatModal(){
   closeModal('matModal');
   renderAlloc();
   addLog((i>=0?'编辑':'新增')+'物料「'+name+'」');
+  // 新建物料且填了市场下发：立刻问活动门店数量，平均分配
+  if(i<0&&numOf(obj.mkt)>0){
+    if(aAll.length)openMatDist(obj.id);
+    else flashTip('物料已保存。分配表还没有门店：先「从通讯录选门店」，再回来分配',4000);
+  }
 }
 function delMat(i){
   const m=DB.materials[i];
@@ -3432,6 +3373,58 @@ function delMat(i){
   addLog('删除物料「'+(m.name||'')+'」');
 }
 function aSave(){DB.alloc=aAll}
+
+// ---------- 新建物料后：按活动门店数量平均分配 ----------
+let mdMatId=null;
+function openMatDist(matId){
+  const m=DB.materials.find(x=>String(x.id)===String(matId));
+  if(!m)return;
+  if(!aAll.length){flashTip('分配表还没有门店行：先「从通讯录选门店」，再回来分配',3500);return}
+  mdMatId=matId;
+  document.getElementById('mdMatName').textContent=m.name||'（未命名）';
+  document.getElementById('mdTotal').textContent=fmtNum(Math.max(0,numOf(m.mkt)));
+  document.getElementById('mdStores').value='';
+  mdPreview();
+  document.getElementById('matDistModal').classList.add('show');
+  setTimeout(()=>{const el=document.getElementById('mdStores');if(el)el.focus()},60);
+}
+function mdCompute(){
+  const m=DB.materials.find(x=>String(x.id)===String(mdMatId))||{};
+  const total=Math.max(0,numOf(m.mkt));
+  const raw=String(document.getElementById('mdStores').value||'').trim();
+  const n=Math.max(1,Math.floor(numOf(raw)));
+  const per=total>0&&raw?Math.floor(total/n):0;
+  const rem=total>0&&raw?(total-per*n):0;
+  return{total,n,per,rem,typed:!!raw,rows:aAll.slice()};
+}
+function mdPreview(){
+  const box=document.getElementById('mdPreviewBox');
+  const btn=document.getElementById('mdApplyBtn');
+  if(!box||!btn)return;
+  const c=mdCompute();
+  if(!(c.total>0)){box.innerHTML='<div class="aa-note">该物料没有填「市场下发」数量，无法分配。</div>';btn.disabled=true;return}
+  if(!c.typed){box.innerHTML='<div class="aa-note">输入门店数量后，这里会显示每店分配几个。</div>';btn.disabled=true;return}
+  btn.disabled=false;
+  let h='<div>每店 <b>'+fmtNum(c.per)+'</b> 个';
+  if(c.rem>0)h+='，前 '+c.rem+' 家各 +1（补余数，保证合计正好 '+fmtNum(c.total)+'）';
+  h+='</div><div>将写入分配表 <b>'+c.rows.length+'</b> 行</div>';
+  if(c.n!==c.rows.length)h+='<div class="w">⚠ 你输入 '+c.n+' 家，但分配表当前有 '+c.rows.length+' 行；仍按每店 '+fmtNum(c.per)+' 个写入全部行</div>';
+  box.innerHTML=h;
+}
+function mdApply(){
+  const c=mdCompute();
+  if(!(c.total>0)){alert('该物料没有市场下发数量');return}
+  if(!c.typed||!(c.n>0)){alert('请输入活动门店数量');return}
+  const cols=allocCols();
+  const col=cols.find(x=>String(x.mat)===String(mdMatId));
+  if(!col){alert('找不到该物料对应的列');return}
+  allocUndo=JSON.stringify(aAll);
+  c.rows.forEach((r,idx)=>aSet(r,col,String(c.per+(idx<c.rem?1:0))));
+  aSave();aCtxCache=null;renderAlloc();closeModal('matDistModal');
+  const m=DB.materials.find(x=>String(x.id)===String(mdMatId));
+  addLog('平均分配「'+(m?m.name:'')+'」'+fmtNum(c.total)+' → '+c.rows.length+' 行（每店 '+fmtNum(c.per)+'）');
+  flashTip('✓ 已按每店 '+fmtNum(c.per)+' 个写入 '+c.rows.length+' 行',3200);
+}
 
 // ---------- 渲染 ----------
 function afKey(v){return (v===''||v===null||v===undefined)?'__BLANK__':String(v)}
@@ -3469,8 +3462,7 @@ function renderAlloc(){
     cols.map((c,i)=>{
       const cls=[];
       if(aFilters[i]&&aFilters[i].size)cls.push('filtered');
-      const cw=colwPx('alloc',i);
-      return '<th data-c="'+i+'"'+(cw?' style="width:'+cw+'px;min-width:'+cw+'px"':'')+' class="'+cls.join(' ')+'" title="点击筛选" onclick="toggleAFilter(event,'+i+')">'+
+      return '<th data-c="'+i+'" class="'+cls.join(' ')+'" title="点击筛选" onclick="toggleAFilter(event,'+i+')">'+
         esc(c.t)+'<i class="fmark" onmousedown="event.stopPropagation()" onclick="event.stopPropagation();toggleAFilter(event,'+i+')"></i></th>';
     }).join('');
 
@@ -3880,191 +3872,6 @@ function confirmStorePick(){
   flashTip('✓ 已加入 '+added+' 家门店',2200);
 }
 
-// ---------- 导入权重表 ----------
-let wImp=null;
-function openWeightModal(){
-  if(!wImp||!wImp.rows||!wImp.rows.length){alert('请先选择要导入的权重表文件');return}
-  const info=document.getElementById('wiInfo');
-  info.textContent='文件：'+wImp.file+'　共 '+wImp.rows.length+' 行 × '+wImp.headers.length+' 列';
-  const keySel=document.getElementById('wiKey');
-  keySel.innerHTML=wImp.headers.map(h=>'<option value="'+esc(h)+'">'+esc(h)+'</option>').join('');
-  const guess=wImp.headers.find(h=>/门店|store|名称|编码|代码|ID|id/i.test(h));
-  if(guess)keySel.value=guess;
-  const def=wImp.headers.find(h=>h!==keySel.value);
-  const fi=document.getElementById('wiFormula');
-  fi.value=def||'';
-  document.getElementById('wiChips').innerHTML=wImp.headers.map(h=>'<span class="chip" title="'+esc(h)+'" onclick="wiInsert(decodeURIComponent(\''+encodeURIComponent(h)+'\'))">'+esc(h)+'</span>').join('');
-  wiPreview();
-  document.getElementById('weightModal').classList.add('show');
-}
-function wiInsert(name){
-  const fi=document.getElementById('wiFormula');
-  const tok=/^[A-Za-z][A-Za-z0-9_]*$/.test(name)?name:'['+name+']';
-  fi.value=(fi.value?fi.value+'*':'')+tok;
-  fi.focus();wiPreview();
-}
-function wiRec(r){const rec={};(wImp?wImp.headers:[]).forEach(h=>rec[h]=r[h]);return rec}
-function wiVal(rec){
-  const f=String(document.getElementById('wiFormula').value||'').trim();
-  if(!f)return 0;
-  try{
-    const v=fEval(fParse(f),wEnv(rec));
-    return isFinite(numOf(v))?numOf(v):0;
-  }catch(e){return NaN}
-}
-function wiPreview(){
-  const box=document.getElementById('wiPreview');
-  if(!box)return;
-  if(!wImp){box.textContent='先选择文件';return}
-  const key=document.getElementById('wiKey').value;
-  const norm=document.getElementById('wiNorm').checked;
-  const vals=wImp.rows.map(wiRec).map(r=>({k:String(r[key]==null?'':r[key]).trim(),v:wiVal(r)}));
-  const bad=vals.filter(x=>isNaN(x.v)).length;
-  const sum=vals.reduce((a,b)=>a+(isNaN(b.v)?0:b.v),0);
-  let html='<div>匹配列：<b>'+esc(key)+'</b> · 公式结果合计 <b>'+fmtNum(sum)+'</b>'+
-    (norm?' · 归一化后合计 1':'')+(bad?' · <span class="w">'+bad+' 行公式报错</span>':'')+'</div>';
-  html+='<div style="margin-top:4px;border-top:1px dashed #ddd;padding-top:4px">前 8 行：</div>';
-  html+=vals.slice(0,8).map(x=>{
-    const v=isNaN(x.v)?'#ERR':(norm&&sum>0?fmtNum(x.v/sum):fmtNum(x.v));
-    return '<div>'+esc(x.k||'（空）')+' → <b>'+v+'</b></div>';
-  }).join('');
-  box.innerHTML=html;
-}
-function wiApply(){
-  if(!wImp){alert('请先选择权重表文件');return}
-  const key=document.getElementById('wiKey').value;
-  const norm=document.getElementById('wiNorm').checked;
-  const map=new Map();
-  let sum=0;
-  wImp.rows.map(wiRec).forEach(rec=>{
-    const v=wiVal(rec);
-    const vv=isNaN(v)?0:v;
-    sum+=vv;
-    const k=String(rec[key]==null?'':rec[key]).trim();
-    if(k&&!map.has(k))map.set(k,vv);
-  });
-  if(!map.size){alert('按所选匹配列没有取到任何值');return}
-  let hit=0,miss=0;
-  aAll.forEach(r=>{
-    const cands=[String(r.storeCode||'').trim(),String(r.storeName||'').trim()].filter(Boolean);
-    let v=null;
-    for(const c of cands){if(map.has(c)){v=map.get(c);break}}
-    if(v===null){miss++;return}
-    const w=norm&&sum>0?v/sum:v;
-    r.weight=String(Math.round(w*1e6)/1e6);
-    hit++;
-  });
-  aSave();aCtxCache=null;renderAlloc();closeModal('weightModal');
-  addLog('导入权重表 '+wImp.file+'，写入 '+hit+' 行');
-  flashTip('✓ 已写入 '+hit+' 行权重'+(miss?'，'+miss+' 行未匹配':''),2800);
-}
-
-// ---------- 自动分配（可选） ----------
-function openAutoAlloc(){
-  const mats=DB.materials;
-  if(!mats.length){alert('请先在上方「物料台账」新增物料');return}
-  const sel=document.getElementById('aaMat');
-  sel.innerHTML=mats.map(m=>'<option value="'+esc(m.id)+'">'+esc(m.name||'（未命名）')+'</option>').join('');
-  document.querySelector('input[name=aaMode][value=none]').checked=true;
-  aaMatChange();
-  document.getElementById('aaUndo').disabled=!allocUndo;
-  document.getElementById('autoAllocModal').classList.add('show');
-}
-function aaMode(){const r=document.querySelector('input[name=aaMode]:checked');return r?r.value:'none'}
-function aaModeChange(){aaPreview()}
-function aaMatChange(){
-  const id=document.getElementById('aaMat').value;
-  const m=DB.materials.find(x=>String(x.id)===String(id));
-  const set=(id,v)=>{document.getElementById(id).value=(v==null?'':String(v))};
-  set('aaTotal',m?(m.mkt==null?'':m.mkt):'');
-  set('aaStep',m?(m.step==null||m.step===''?'':m.step):'');
-  document.getElementById('aaStepOn').checked=!!(m&&String(m.step||'').trim()!==''&&numOf(m.step)>0);
-  aaPreview();
-}
-function aaRows(){
-  const scope=document.getElementById('aaScope').value;
-  if(scope==='sel'){
-    const ids=new Set([...document.querySelectorAll('#allocBody .a-cb:checked')].map(c=>String(c.dataset.id)));
-    return aList.filter(r=>ids.has(String(r.id)));
-  }
-  return aList.slice();
-}
-function aaCompute(){
-  const mode=aaMode();
-  if(mode==='none')return{mode:'none'};
-  const cols=allocCols();
-  const mid=document.getElementById('aaMat').value;
-  const col=cols.find(c=>String(c.mat)===String(mid));
-  if(!col)return{mode,err:'找不到该物料对应的列'};
-  const rows=aaRows();
-  if(!rows.length)return{mode,err:'没有可分配的行（先勾选行，或清掉搜索/筛选）'};
-  const total=Math.max(0,numOf(document.getElementById('aaTotal').value));
-  if(!(total>0))return{mode,err:'分配总数需大于 0'};
-  const useStep=document.getElementById('aaStepOn').checked;
-  const step=useStep?Math.max(1,numOf(document.getElementById('aaStep').value)||1):1;
-  const rawW=rows.map(r=>mode==='even'?1:Math.max(0,numOf(r.weight)));
-  const sumW=rawW.reduce((a,b)=>a+b,0);
-  const w=sumW>0?rawW:rows.map(()=>1);
-  const sw=w.reduce((a,b)=>a+b,0)||1;
-  const ideal=w.map(x=>total*x/sw);
-  const base=ideal.map(x=>Math.floor(x/step)*step);
-  let steps=Math.floor((total-base.reduce((a,b)=>a+b,0))/step+1e-9);
-  const order=ideal.map((x,i)=>({i,f:x-base[i]})).sort((a,b)=>b.f-a.f);
-  const out=base.slice();
-  for(let k=0;k<steps&&k<order.length;k++)out[order[k].i]+=step;
-  const sum=out.reduce((a,b)=>a+b,0);
-  const changes=rows.map((r,i)=>{
-    const old=aRaw(r,col);
-    return{name:r.storeName||r.storeCode||'（未命名行）',old,neu:String(out[i]),formula:String(old).trim().charAt(0)==='='};
-  });
-  const oldSum=rows.reduce((a,r)=>a+numOf(aRaw(r,col)),0);
-  return{mode,col,rows,out,sum,buffer:total-sum,total,step,useStep,oldSum,
-    formulaCount:changes.filter(c=>c.formula).length,changes,
-    weightEmpty:mode==='weight'&&sumW<=0};
-}
-function aaPreview(){
-  const box=document.getElementById('aaPreview');
-  const apply=document.getElementById('aaApply');
-  if(!box||!apply)return;
-  const c=aaCompute();
-  if(c.mode==='none'){
-    box.innerHTML='<div class="aa-note">当前选择 <b>不自动分配</b>：不做任何计算，表内已有的数值和公式全部保留。<br>'+
-      '需要自动计算时，勾选上方「按权重分配」或「均分」，这里会显示逐行改动预览，确认无误后再点「应用」。</div>';
-    apply.disabled=true;return;
-  }
-  if(c.err){box.innerHTML='<div class="aa-note" style="color:#ea4335">'+esc(c.err)+'</div>';apply.disabled=true;return}
-  apply.disabled=false;
-  const diff=c.changes.filter(x=>x.old!==x.neu);
-  let h='';
-  h+='<div><span class="k">'+(c.mode==='weight'?'按权重分配':'均分')+'</span> · 目标 <b>'+c.rows.length+'</b> 行 · '+(c.useStep?('步长 '+c.step):'不取整')+'</div>';
-  h+='<div>分配总数 <b>'+fmtNum(c.total)+'</b> → 写入 <b>'+fmtNum(c.sum)+'</b>，余 <span class="w">'+fmtNum(c.buffer)+'</span> 留作缓冲（不足一个步长，不硬塞）</div>';
-  h+='<div>该列原合计 '+fmtNum(c.oldSum)+' → 新合计 '+fmtNum(c.sum)+'</div>';
-  if(c.formulaCount)h+='<div class="w">⚠ 将覆盖 '+c.formulaCount+' 个公式单元格为固定数值</div>';
-  if(c.weightEmpty)h+='<div class="w">⚠ 权重列全为空，已按均分处理</div>';
-  h+='<div style="margin-top:5px;border-top:1px dashed #ddd;padding-top:5px">逐行改动（共 '+diff.length+' 条有变化，最多列 30 条）：</div>';
-  h+=diff.slice(0,30).map(x=>'<div>'+esc(x.name)+'：'+(x.old===''?'空':esc(x.old))+' → <b>'+esc(x.neu)+'</b>'+(x.formula?' <span class="w">(公式)</span>':'')+'</div>').join('');
-  if(!diff.length)h+='<div>各行数值与结果一致，无需改动。</div>';
-  box.innerHTML=h;
-}
-function aaApply(){
-  const c=aaCompute();
-  if(c.mode==='none'){alert('当前选择「不自动分配」，无需应用');return}
-  if(c.err){alert(c.err);return}
-  allocUndo=JSON.stringify(aAll);
-  c.rows.forEach((r,i)=>aSet(r,c.col,String(c.out[i])));
-  aSave();aCtxCache=null;renderAlloc();closeModal('autoAllocModal');
-  const m=DB.materials.find(x=>String(x.id)===String(c.col.mat));
-  addLog('自动分配「'+(m?m.name:'')+'」'+fmtNum(c.sum)+' → '+c.rows.length+' 行');
-  flashTip('✓ 已写入 '+c.rows.length+' 行，合计 '+fmtNum(c.sum)+'（缓冲 '+fmtNum(c.buffer)+'）',3200);
-}
-function aaUndo(){
-  if(!allocUndo){alert('暂无可撤销的自动分配（仅本次会话内有效）');return}
-  if(!confirm('撤销上次自动分配，恢复应用前的全部数值？'))return;
-  aAll=JSON.parse(allocUndo);allocUndo=null;
-  aSave();aCtxCache=null;renderAlloc();closeModal('autoAllocModal');
-  flashTip('已撤销上次自动分配',2000);
-}
-
 // ---------- 导出 xlsx ----------
 function exportAllocXlsx(){
   if(typeof XLSX==='undefined'){alert('Excel 解析库未加载，请联网后刷新页面重试');return}
@@ -4149,33 +3956,6 @@ function exportAllocXlsx(){
   if(ms)ms.addEventListener('input',e=>aDebounce(e.target.value));
   const sp=document.getElementById('spSearch');
   if(sp)sp.addEventListener('input',e=>{spFilter=e.target.value;renderStorePick()});
-  const wfile=document.getElementById('allocWeightFile');
-  if(wfile)wfile.addEventListener('change',function(e){
-    const file=e.target.files&&e.target.files[0];
-    if(!file)return;
-    if(typeof XLSX==='undefined'){alert('Excel 解析库未加载，请联网后刷新页面重试');e.target.value='';return}
-    const reader=new FileReader();
-    reader.onload=function(ev){
-      try{
-        const wb=XLSX.read(ev.target.result,{type:'array'});
-        const ws=wb.Sheets[wb.SheetNames[0]];
-        const rows=XLSX.utils.sheet_to_json(ws,{defval:''});
-        if(!rows.length){alert('表格里没有数据行');return}
-        wImp={headers:Object.keys(rows[0]),rows,file:file.name};
-        openWeightModal();
-      }catch(err){alert('解析失败：'+err.message)}
-    };
-    reader.readAsArrayBuffer(file);
-    e.target.value='';
-  });
-  ['wiKey','wiFormula','wiNorm'].forEach(id=>{
-    const el=document.getElementById(id);
-    if(el)el.addEventListener('change',wiPreview);
-  });
-  ['aaTotal','aaStep','aaScope'].forEach(id=>{
-    const el=document.getElementById(id);
-    if(el)el.addEventListener('input',aaPreview);
-  });
   const aResize=debounce(()=>aFreezeCols(),150);
   window.addEventListener('resize',aResize);
   window.addEventListener('load',()=>aFreezeCols());
