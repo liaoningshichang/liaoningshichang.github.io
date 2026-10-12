@@ -59,7 +59,10 @@ body.rsz-active *{cursor:col-resize!important}
 .chart-box h4 .legend{float:right;font-size:12px;font-weight:400;color:#666;display:flex;gap:12px;align-items:center}
 .chart-box h4 .legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:4px;vertical-align:-1px}
 #contactWrap table{width:max-content;min-width:100%}
-#contactWrap td{padding:0}
+#contactWrap td{padding:0;position:relative}
+/* td 是 padding:0，把手贴在单元格右缘会压住输入框、很难抓到；
+   把把手往左挪 4px，让出可点击区域（列宽仍是整列，不受影响）。 */
+#contactWrap td .rsz{right:2px;width:10px}
 #previewHead th[data-col]{cursor:pointer;user-select:none;position:sticky;top:0;z-index:2;padding-right:26px}
 #previewHead th[data-col] .fmark{position:absolute;right:14px;top:50%;transform:translateY(-50%);font-size:9px;color:#bbb;font-style:normal}
 #previewHead th[data-col] .fmark::before{content:'▾'}
@@ -113,7 +116,7 @@ tr:hover{background:#f8f9fc}
 .stat-card{background:#fff;border-radius:10px;padding:16px;box-shadow:0 1px 3px rgba(0,0,0,.07)}
 .stat-card .num{font-size:28px;font-weight:700;color:#1a73e8}
 .stat-card .lbl{font-size:12px;color:#888;margin-top:2px}
-.stat-card.g .num{color:#34a853}.stat-card.o .num{color:#f9ab00}.stat-card.r .num{color:#ea4335}
+.stat-card.g .num{color:#34a853}.stat-card.o .num{color:#f9ab00}.stat-card.r .num{color:#ea4335}.stat-card.b .num{color:#a142f4}
 .chart-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
 .chart-box{background:#fff;border-radius:10px;padding:18px;box-shadow:0 1px 3px rgba(0,0,0,.07)}
 .chart-box h4{font-size:14px;color:#333;margin-bottom:12px;font-weight:600}
@@ -149,6 +152,21 @@ tr:hover{background:#f8f9fc}
 .cross-table td.area-mijia{border-left-color:#34a853;font-weight:600;color:#1e7d37}
 .cross-table td.area-other{border-left-color:#9aa0a6;color:#5f6368}
 .dash-cols{display:grid;grid-template-columns:35fr 65fr;gap:16px;align-items:start;margin-bottom:16px}
+#matDetail table{font-size:12px;width:100%;border-collapse:separate;border-spacing:0}
+#matDetail th{background:#f7f8fa;padding:8px 10px;text-align:center;font-size:12px;color:#5f6368;font-weight:600;border-bottom:2px solid #e3e6ea;position:sticky;top:0;z-index:2}
+#matDetail td{padding:7px 10px;text-align:center;border-bottom:1px solid #f0f0f0;color:#202124;vertical-align:middle}
+#matDetail th.l,#matDetail td.l{text-align:left}
+#matDetail th.r,#matDetail td.r{text-align:right;font-variant-numeric:tabular-nums}
+#matDetail td.l{font-weight:500}
+#matDetail tbody tr:nth-child(even){background:#fcfcfd}
+#matDetail tbody tr:hover{background:#f0f6ff}
+#matDetail tfoot td{background:#f7f9fc;font-weight:700;border-top:2px solid #e3e6ea;border-bottom:none;color:#202124}
+#matDetail .tag{display:inline-block;padding:1px 7px;border-radius:9px;font-size:11px;font-weight:600;line-height:16px;white-space:nowrap}
+#matDetail .tag-phy{background:#e6f4ea;color:#137333}
+#matDetail .tag-act{background:#fef7e0;color:#b06000}
+#matDetail .kind-cell{white-space:nowrap}
+#matDetail .muted{color:#bbb}
+#matDetail .zero{color:#ccc}
 .dash-cols .chart-box,.dash-cols .cross-table{margin-bottom:0}
 .act-list{background:#fff;border-radius:10px;padding:18px;box-shadow:0 1px 3px rgba(0,0,0,.07)}
 .act-list h4{font-size:14px;color:#333;margin-bottom:12px;font-weight:600}
@@ -511,6 +529,13 @@ iframe[id^="sb__open-sandbox"]{display:none!important}
       <div id="crossTableBody"></div>
     </div>
     </div><!-- /dash-cols -->
+
+    <div class="cross-table" id="matDetail" style="margin-bottom:16px">
+      <h4><span data-lk="matDetailTitle">物料明细</span>
+        <span style="float:right;font-weight:400;font-size:12px;color:#888" data-lk="matDetailHint">礼品发放数只统计实物礼品，活动物料不计入</span>
+      </h4>
+      <div id="matDetailBody"></div>
+    </div>
   </div>
 
   <!-- ========== 联系人 ========== -->
@@ -519,9 +544,9 @@ iframe[id^="sb__open-sandbox"]{display:none!important}
       <button class="btn btn-primary" data-lk="btnAddRow" onclick="addContactRow()">+ 新增行</button>
       <button class="btn btn-success" data-lk="btnExportContacts" onclick="exportContacts()">导出</button>
       <input type="file" accept=".xlsx,.xls,.csv" id="contactFile" style="display:none">
-      <button class="btn btn-outline" data-lk="btnImportContacts" onclick="document.getElementById('contactFile').click()">门店批量导入</button>
+      <button class="btn btn-outline" data-lk="btnImportContacts" onclick="document.getElementById('contactFile').click()">批量导入门店信息</button>
       <input type="file" accept=".xlsx,.xls,.csv" id="cConfirmFile" style="display:none">
-      <button class="btn btn-outline" data-lk="btnImportConfirm" title="导入店长确认过的活动门店表，逐条核对收货人/电话/门店名/地址的变动后再决定是否更新" onclick="document.getElementById('cConfirmFile').click()">门店信息更新检测</button>
+      <button class="btn btn-outline" data-lk="btnImportConfirm" title="导入店长确认过的活动门店表，逐条核对收货人/电话/门店名/地址的变动后再决定是否更新" onclick="document.getElementById('cConfirmFile').click()">活动确认表信息比对</button>
       <button class="btn btn-outline" data-lk="btnViewHistory" onclick="openChHistory()">历史记录</button>
       <input type="text" class="search-box" id="contactSearch" placeholder="搜索门店、收货人、地址…">
       <span style="font-size:12px;color:#999;margin-left:auto" data-lk="contactHint">点击单元格编辑，拖动框选后 Ctrl+C / Ctrl+V 复制粘贴</span>
@@ -633,6 +658,10 @@ iframe[id^="sb__open-sandbox"]{display:none!important}
           <label>活动规则</label>
           <input id="newActRule" placeholder="如：到店消费满99元参与抽奖">
         </div>
+      </div>
+      <div class="form-group" style="margin-top:8px">
+        <label>本活动包含的物料 <span style="font-weight:400;color:#999">（可多选；活动物料不计入礼品发放数）</span></label>
+        <select id="newActMats" multiple size="4" style="width:100%;padding:6px 8px;border:1px solid #ddd;border-radius:6px;font-size:13px;background:#fff"></select>
       </div>
     </div>
     <div id="actEditList"></div>
@@ -1108,7 +1137,18 @@ function switchTab(name){
   else if(name==='alloc')renderAlloc();
 }
 document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>switchTab(t.dataset.page)));
-function openActModal(){renderActEditList();document.getElementById('actModal').classList.add('show')}
+function openActModal(){renderActEditList();fillActMatSel();document.getElementById('actModal').classList.add('show')}
+function fillActMatSel(){
+  const sel=document.getElementById('newActMats');
+  if(!sel)return;
+  const mats=DB.materials||[];
+  sel.innerHTML=mats.length
+    ? mats.map(m=>{
+        const k=m.kind||'实物礼品';
+        return '<option value="'+esc(m.id)+'">'+esc(m.name||'（未命名物料）')+' · '+esc(k)+'</option>';
+      }).join('')
+    : '<option value="" disabled>还没有物料：先去「物料台账」添加物料</option>';
+}
 function closeModal(id){document.getElementById(id).classList.remove('show')}
 document.querySelectorAll('.modal-overlay').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('show')}));
 
@@ -1136,10 +1176,16 @@ function fitContactCols(){
       if(w>maxs[i])maxs[i]=w;
     }
   });
+  // 只给「没有用户拖过、也没有实测默认宽」的列兜底一个最小宽度。
+  // 绝不能无条件改 input 宽度：那会盖掉 <colgroup> 里 <col> 的宽度，
+  // 导致拖拽调列宽看起来「不生效」（门店名称、收货人等列拖了没反应）。
+  const colw=colwGet('contact');
+  const hasDefault=!!colwDefaults['contact'];
   rows.forEach(tr=>{
     for(let i=0;i<tr.children.length;i++){
       const el=tr.children[i].querySelector('input,select');
       if(!el||el.type==='checkbox')continue;
+      if(colw[i]||(hasDefault&&colwDefaults['contact'][i]))continue;
       el.style.width=Math.max(maxs[i]+2,2)+'ch';
     }
   });
@@ -1666,6 +1712,11 @@ function renderActEditList(){
         <input type="text" value="${esc(a.scanName||'')}" onchange="DB.activities[${i}].scanName=this.value;DB.activities=DB.activities" placeholder="零售通扫码名称" style="font-size:12px">
         <input type="text" value="${esc(a.rule||'')}" onchange="DB.activities[${i}].rule=this.value;DB.activities=DB.activities" placeholder="活动规则" style="font-size:12px">
       </div>
+      <div style="padding-top:4px;font-size:12px;color:#555"><span style="color:#999">物料：</span>${
+        (a.matIds&&a.matIds.length)
+          ? a.matIds.map(id=>{const m=(DB.materials||[]).find(x=>String(x.id)===String(id));return esc(m?(m.name||'（未命名物料）'):('已删除物料'))}).join('、')
+          : '<span style="color:#bbb">未关联</span>'
+      }</div>
     </div>
   `).join('')||'<div style="color:#aaa;font-size:13px;padding:10px 0">暂无活动</div>';
 }
@@ -1676,17 +1727,20 @@ function addActivity(){
   const ed=document.getElementById('newActEnd').value;
   const scanName=document.getElementById('newActScanName').value.trim();
   const rule=document.getElementById('newActRule').value.trim();
+  const matSel=document.getElementById('newActMats');
+  const matIds=matSel?Array.from(matSel.selectedOptions).map(o=>o.value).filter(Boolean):[];
   if(!name){alert('请输入活动名称');return}
   if(!sd||!ed){alert('请选择起止日期');return}
   if(ed<sd){alert('结束日期不能早于开始日期');return}
   const acts=DB.activities;
-  acts.push({id:uid(),name,startDate:sd,endDate:ed,scanName,rule});
+  acts.push({id:uid(),name,startDate:sd,endDate:ed,scanName,rule,matIds});
   DB.activities=acts;
   document.getElementById('newActName').value='';
   document.getElementById('newActStart').value='';
   document.getElementById('newActEnd').value='';
   document.getElementById('newActScanName').value='';
   document.getElementById('newActRule').value='';
+  if(matSel)matSel.selectedIndex=-1;
   addLog('新建活动：'+name);
   renderActEditList();refreshAll();
 }
@@ -1919,7 +1973,6 @@ const LABEL_DEFS=[
   ['matActHint','按物料设置活动·弹窗说明','上传的表格里有下面这些物料名称。为每个物料选择或新建活动（新活动要填起止日期），导入后会自动给对应行打上活动标签，不用再逐行手选。'],
   ['matActApplyBtn','按物料设置活动·应用按钮','应用活动标签'],
   ['matActSkipBtn','按物料设置活动·跳过按钮','暂不设置'],
-  ['btnImportConfirm','门店信息·更新检测按钮','门店信息更新检测'],
   ['btnViewHistory','门店信息·历史记录按钮','历史记录'],
   ['chRepTitle','门店信息更新检测·结果标题','门店信息更新检测结果'],
   ['chRepClose','门店信息更新检测·关闭按钮','关闭'],
@@ -1939,9 +1992,13 @@ const LABEL_DEFS=[
   ['statAuth','「授权活动门店」指标名','授权活动门店'],
   ['statMijia','「米家活动门店」指标名','米家活动门店'],
   ['statActRange','「区间活动场次」指标名','区间活动场次'],
+  ['statGiftTotal','「礼品发放总数」指标名','礼品发放总数'],
+  ['matDetailTitle','「物料明细」表标题','物料明细'],
+  ['matDetailHint','「物料明细」说明','礼品发放数只统计实物礼品，活动物料不计入'],
   ['btnAddRow','「新增行」按钮','+ 新增行'],
   ['btnExportContacts','门店页「导出」按钮','导出'],
-  ['btnImportContacts','门店页「门店批量导入」按钮','门店批量导入'],
+  ['btnImportContacts','门店页「批量导入门店信息」按钮','批量导入门店信息'],
+  ['btnImportConfirm','门店页「活动确认表信息比对」按钮','活动确认表信息比对'],
   ['contactHint','门店页编辑提示','点击单元格编辑，拖动框选后 Ctrl+C / Ctrl+V 复制粘贴'],
   ['tabAlloc','「物料分配」标签页','物料分配'],
   ['btnAllocFill','物料页「批量填数」按钮','批量填数'],
@@ -3055,13 +3112,18 @@ function renderDashboard(){
     }
   }
 
-  document.getElementById('statsGrid').innerHTML=`
-    <div class="stat-card"><div class="num">${actCount}</div><div class="lbl"${dashRange?' data-lk="statActRange"':''}>${esc(actLbl)}</div></div>
-    <div class="stat-card o"><div class="num">${authCount}</div><div class="lbl" data-lk="statAuth">授权活动门店</div></div>
-    <div class="stat-card g"><div class="num">${mijiaCount}</div><div class="lbl" data-lk="statMijia">米家活动门店</div></div>`;
-  applyLabels();
-
-  // 活动参与数据
+  // 活动参与数据（礼品发放只统计「实物礼品」，刨除「活动物料」等非实物）
+  const matKindOf={};
+  for(const m of DB.materials){
+    matKindOf[String(m.id)]=(m.kind||'实物礼品');
+    matKindOf[String(m.name||'').trim()]=(m.kind||'实物礼品');
+  }
+  const isPhysicalGift=name=>{
+    const k=matKindOf[String(name==null?'':name).trim()];
+    return k===undefined||k==='实物礼品';
+  };
+  const physicalRows=withAct.filter(r=>isPhysicalGift(r.productName));
+  let giftTotal=0;
   const actStoreMap={};
   const actSessionMap={};
   const actGiftMap={};
@@ -3069,12 +3131,21 @@ function renderDashboard(){
     if(!actStoreMap[r.activity])actStoreMap[r.activity]=new Set();
     actStoreMap[r.activity].add(r.matchedStore);
     actSessionMap[r.activity]=(actSessionMap[r.activity]||0)+1;
+    if(!isPhysicalGift(r.productName))continue;
     const q=numOf(r.qty);
-    if(q>0)actGiftMap[r.activity]=(actGiftMap[r.activity]||0)+q;
+    if(q>0){actGiftMap[r.activity]=(actGiftMap[r.activity]||0)+q;giftTotal+=q}
   }
   const actNames=viewActs.map(a=>a.name);
   const giftFmt=v=>numOf(v)>0?numOf(v).toLocaleString('zh-CN'):'0';
   const giftOf=n=>actGiftMap[n]||0;
+  const physicalStoreCount=new Set(physicalRows.map(r=>r.matchedStore)).size;
+
+  document.getElementById('statsGrid').innerHTML=`
+    <div class="stat-card"><div class="num">${actCount}</div><div class="lbl"${dashRange?' data-lk="statActRange"':''}>${esc(actLbl)}</div></div>
+    <div class="stat-card o"><div class="num">${authCount}</div><div class="lbl" data-lk="statAuth">授权活动门店</div></div>
+    <div class="stat-card g"><div class="num">${mijiaCount}</div><div class="lbl" data-lk="statMijia">米家活动门店</div></div>
+    <div class="stat-card b"><div class="num">${giftFmt(giftTotal)}</div><div class="lbl" data-lk="statGiftTotal">礼品发放总数</div></div>`;
+  applyLabels();
 
   // 市场活动汇总表
   let sumHtml='<table><thead><tr><th>活动名称</th><th>参与门店数</th><th>礼品发放数</th><th>起止日期</th><th>零售通扫码名称</th></tr></thead><tbody>';
@@ -3110,6 +3181,7 @@ function renderDashboard(){
   const crossData={};
   const crossGift={};
   for(const r of withAct){
+    if(!isPhysicalGift(r.productName))continue;
     const area=storeAreaMap[r.matchedStore]||'未分配';
     const key=area+'||'+r.activity;
     if(!crossData[key])crossData[key]=new Set();
@@ -3118,7 +3190,7 @@ function renderDashboard(){
     if(q>0)crossGift[key]=(crossGift[key]||0)+q;
   }
 
-  let html='<table><thead><tr><th>小区/区域</th><th class="x-total">合计</th><th>礼品发放数</th>'+actNames.map(a=>`<th>${esc(a)}</th>`).join('')+'</tr></thead><tbody>';
+  let html='<table><thead><tr><th>小区/区域</th><th class="x-total">门店数量</th><th>礼品发放数</th>'+actNames.map(a=>`<th>${esc(a)}</th>`).join('')+'</tr></thead><tbody>';
   const areaType=area=>{
     if(area.includes('授权'))return 'auth';
     if(area.includes('专卖')||area.includes('米家'))return 'mijia';
@@ -3142,10 +3214,66 @@ function renderDashboard(){
   }
   if(areas.length){
     const footCells=actNames.map(a=>`<td style="font-weight:600">${giftFmt(giftOf(a))}</td>`).join('');
-    html+=`<tr style="background:#f7f9fc;font-weight:600"><td>合计</td><td class="x-total"></td><td>${giftFmt(colTotalGift)}</td>${footCells}</tr>`;
+    html+=`<tr style="background:#f7f9fc;font-weight:600"><td>门店数量</td><td class="x-total"></td><td>${giftFmt(colTotalGift)}</td>${footCells}</tr>`;
   }
   html+='</tbody></table>';
   document.getElementById('crossTableBody').innerHTML=html;
+
+  // 物料明细表
+  const matAgg={};
+  const bump=(key,name,kind,qty)=>{
+    if(!key)return null;
+    if(!matAgg[key])matAgg[key]={name:name||'（未命名物料）',kind:kind||'实物礼品',stores:new Set(),orders:0,gifts:0};
+    const a=matAgg[key];
+    if(qty>0){a.gifts+=qty;a.orders++}
+    return a;
+  };
+  for(const r of withAct){
+    const pn=String(r.productName==null?'':r.productName).trim();
+    const q=numOf(r.qty);
+    const kind=(matKindOf[pn]!==undefined?matKindOf[pn]:(matKindOf[String(r.productCode||'').trim()]||'实物礼品'));
+    const a=bump(pn||('code:'+String(r.productCode||'').trim()),pn,kind,q);
+    if(a&&r.matchedStore)a.stores.add(r.matchedStore);
+  }
+  const matRows=Object.values(matAgg).sort((a,b)=>b.gifts-a.gifts||b.stores.size-a.stores.size||String(a.name).localeCompare(String(b.name)));
+  const mEl=document.getElementById('matDetailBody');
+  if(mEl){
+    if(!matRows.length){
+      mEl.innerHTML='<div style="padding:22px;text-align:center;color:#aaa;font-size:13px">暂无物料数据：在「物流管理」上传回单并匹配活动后，这里会按物料汇总发放情况</div>';
+    }else{
+      let mTotalStores=0,mTotalOrders=0,mTotalGifts=0;
+      const body=matRows.map(a=>{
+        mTotalStores+=a.stores.size;mTotalOrders+=a.orders;mTotalGifts+=a.gifts;
+        const phy=a.kind!=='活动物料';
+        const tag=phy?'<span class="tag tag-phy">实物礼品</span>':'<span class="tag tag-act">活动物料</span>';
+        const giftCell=phy?giftFmt(a.gifts):'<span class="muted">不计入</span>';
+        return `<tr>
+          <td class="l" title="${esc(a.name)}">${esc(a.name)}</td>
+          <td class="kind-cell">${tag}</td>
+          <td class="r">${a.stores.size?fmtNum(a.stores.size):'<span class="zero">0</span>'}</td>
+          <td class="r">${a.orders?fmtNum(a.orders):'<span class="zero">0</span>'}</td>
+          <td class="r">${giftCell}</td>
+        </tr>`;
+      }).join('');
+      mEl.innerHTML=`<table>
+        <thead><tr>
+          <th class="l" style="min-width:200px">物料名称</th>
+          <th style="min-width:96px">种类</th>
+          <th class="r" style="min-width:90px">涉及门店数</th>
+          <th class="r" style="min-width:96px">发货单数</th>
+          <th class="r" style="min-width:110px">礼品发放数</th>
+        </tr></thead>
+        <tbody>${body}</tbody>
+        <tfoot><tr>
+          <td class="l">合计（${matRows.length} 项）</td>
+          <td></td>
+          <td class="r">${fmtNum(mTotalStores)}</td>
+          <td class="r">${fmtNum(mTotalOrders)}</td>
+          <td class="r">${giftFmt(mTotalGifts)}</td>
+        </tr></tfoot>
+      </table>`;
+    }
+  }
   updateDashChip();
 }
 
