@@ -35,13 +35,30 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Micr
 table{width:100%;border-collapse:collapse;font-size:13px}
 th{background:#f8f9fa;padding:8px 10px;text-align:left;font-weight:600;border-bottom:2px solid #e0e0e0;white-space:nowrap;position:sticky;top:0;z-index:1}
 td{padding:0;border-bottom:1px solid #f0f0f0;white-space:nowrap}
+/* ===== 四个数据表统一的表头可点样式（以物流管理预览表为准：hover 底色+文字变蓝）+ 拖拽调列宽 ===== */
+/* 统一表头基础：与预览表一致的可点/选中态。各表自身规则不得再覆盖 hover。 */
+#allocWrap th[data-c],#contactWrap th[data-c],#previewHead th[data-col],.mat-scroll th{
+  cursor:pointer;user-select:none;position:relative;white-space:nowrap;
+  background:#f8f9fa;padding:7px 8px;font-size:12px;text-align:left;font-weight:600;
+}
+#allocWrap th[data-c]:hover,#contactWrap th[data-c]:hover,#previewHead th[data-col]:hover,.mat-scroll th:hover{background:#e8f0fe;color:#1a73e8}
+#allocWrap th[data-c]:hover .fmark,#contactWrap th[data-c]:hover .fmark,#previewHead th[data-col]:hover .fmark{color:#1a73e8}
+/* 列宽拖拽把手：贴在每个可拖 th 的右缘，常驻可见，拖动时加粗变色 */
+.rsz{position:absolute;top:0;right:0;width:8px;height:100%;cursor:col-resize;z-index:20;user-select:none;touch-action:none;background:linear-gradient(90deg,rgba(0,0,0,0) 0%,rgba(0,0,0,0) 45%,rgba(0,0,0,.18) 50%,rgba(0,0,0,0) 55%,rgba(0,0,0,0) 100%);transition:background .12s}
+.rsz:hover,.rsz.rsz-on{background:linear-gradient(90deg,rgba(0,0,0,0) 0%,rgba(0,0,0,0) 46%,#1a73e8 50%,rgba(0,0,0,0) 54%,rgba(0,0,0,0) 100%)}
+.rsz.rsz-on{width:9px}
+body.rsz-active{cursor:col-resize!important;user-select:none!important}
+body.rsz-active *{cursor:col-resize!important}
+/* 表头留出把手位，并给筛选箭头让开，避免重叠。sticky 本身就是定位祖先，能正确锚定 .rsz，不要改成 relative（会失去粘顶） */
+#previewHead th[data-col].rsz-idx,#contactWrap th.rsz-idx,#allocHead th.rsz-idx,.mat-scroll th.rsz-idx{min-width:44px;padding-right:14px}
+#previewHead th.rsz-idx .fmark{right:10px}
+#allocWrap th[data-c].rsz-idx .fmark{right:10px}
 .chart-box h4 .legend{float:right;font-size:12px;font-weight:400;color:#666;display:flex;gap:12px;align-items:center}
 .chart-box h4 .legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:4px;vertical-align:-1px}
 #contactWrap table{width:max-content;min-width:100%}
-#contactWrap td,#contactWrap th{padding:0}
-#previewHead th[data-col]{cursor:pointer;user-select:none;position:sticky;top:0;z-index:2;padding-right:20px}
-#previewHead th[data-col]:hover{background:#e8f0fe}
-#previewHead th[data-col] .fmark{position:absolute;right:6px;top:50%;transform:translateY(-50%);font-size:9px;color:#bbb;font-style:normal}
+#contactWrap td{padding:0}
+#previewHead th[data-col]{cursor:pointer;user-select:none;position:sticky;top:0;z-index:2;padding-right:26px}
+#previewHead th[data-col] .fmark{position:absolute;right:14px;top:50%;transform:translateY(-50%);font-size:9px;color:#bbb;font-style:normal}
 #previewHead th[data-col] .fmark::before{content:'▾'}
 #previewHead th.filtered{background:#e8f0fe;color:#1a73e8}
 #previewHead th.filtered .fmark{color:#1a73e8}
@@ -213,8 +230,7 @@ tr:hover{background:#f8f9fc}
 #contactBody td.csel input{background:rgba(255,255,255,.35)}
 #contactBody td{cursor:cell;user-select:none}
 #contactBody td input{user-select:text}
-#contactWrap th[data-c]{cursor:pointer;user-select:none}
-#contactWrap th[data-c]:hover{color:#1a73e8;background:#e8f0fe}
+#contactWrap th[data-c]{cursor:pointer;user-select:none;position:relative;padding-right:26px}
 .filter-input{width:100%;padding:4px 6px;font-size:12px;border:1px solid #c5dafc;border-radius:4px;outline:none;background:#fff}
 .filter-input:focus{border-color:#1a73e8}
 @media(max-width:1200px){.dash-cols{grid-template-columns:1fr}}
@@ -253,7 +269,7 @@ iframe[id^="sb__open-sandbox"]{display:none!important}
 .mat-scroll{overflow:auto;max-height:210px}
 .mat-scroll table{width:max-content;min-width:100%}
 .mat-scroll th{position:sticky;top:0;z-index:1}
-.mat-scroll td,.mat-scroll th{padding:0}
+.mat-scroll td{padding:0}
 .mat-scroll td input{width:100%;border:none;padding:6px 8px;font-size:13px;background:transparent;outline:none;font-family:inherit}
 .mat-scroll td input:focus{background:#e8f0fe;box-shadow:inset 0 0 0 2px #1a73e8}
 .mat-scroll td.num{padding:0 9px;text-align:right;font-size:13px;font-weight:600;color:#202124}
@@ -261,12 +277,11 @@ iframe[id^="sb__open-sandbox"]{display:none!important}
 .mat-scroll td.op{padding:4px 8px;white-space:nowrap}
 .mat-empty{color:#aaa;font-size:13px;padding:12px 4px}
 #allocWrap table{width:max-content;min-width:100%}
-#allocWrap td,#allocWrap th{padding:0}
+#allocWrap td{padding:0}
 #allocBody td{cursor:cell;user-select:none}
 #allocBody td input{user-select:text}
-#allocWrap th[data-c]{cursor:pointer;user-select:none;position:relative;padding-right:22px}
-#allocWrap th[data-c]:hover{background:#e8f0fe;color:#1a73e8}
-#allocWrap th[data-c] .fmark{position:absolute;right:7px;top:50%;transform:translateY(-50%);font-size:9px;color:#bbb;font-style:normal}
+#allocWrap th[data-c]{cursor:pointer;user-select:none;position:relative;padding-right:26px}
+#allocWrap th[data-c] .fmark{position:absolute;right:14px;top:50%;transform:translateY(-50%);font-size:9px;color:#bbb;font-style:normal}
 #allocWrap th[data-c] .fmark::before{content:'▾'}
 #allocWrap th[data-c].filtered{background:#e8f0fe;color:#1a73e8}
 #allocWrap th.filtered .fmark{color:#1a73e8}
@@ -471,7 +486,7 @@ iframe[id^="sb__open-sandbox"]{display:none!important}
     <div class="table-wrap" id="contactWrap">
       <table>
         <thead>
-          <tr>
+          <tr id="contactHead">
             <th class="cb-col"><input type="checkbox" id="cCheckAll" onchange="toggleAllContacts(this.checked)"></th>
             <th data-c="0" onclick="cSelColumn(event,0)">门店代码</th>
             <th data-c="1" onclick="cSelColumn(event,1)">门店名称</th>
@@ -515,10 +530,10 @@ iframe[id^="sb__open-sandbox"]{display:none!important}
         <span class="mat-stat" id="matStat"></span>
         <button class="btn btn-primary btn-sm" data-lk="btnAddMaterial2" onclick="openMatModal(-1)">+ 新增物料</button>
       </div>
-      <div class="mat-scroll">
+      <div class="mat-scroll" id="matScroll">
         <table>
           <thead>
-            <tr>
+            <tr id="matHead">
               <th style="min-width:150px" data-lk="thMatName">物料名称</th>
               <th style="min-width:110px" data-lk="thMatCode">编号</th>
               <th style="width:96px" data-lk="thMatHq">总部实发</th>
@@ -872,7 +887,7 @@ function lsSet(k,v){
 // ==================== Supabase 云同步 ====================
 let syncCfg=null, applyingRemote=false;
 const syncDirty={}, syncTimers={}, syncMeta={};
-const SYNC_KEYS=['contacts','activities','orders','labels','materials','alloc','contactHistory'];
+const SYNC_KEYS=['contacts','activities','orders','labels','materials','alloc','contactHistory','colw'];
 
 function loadSyncCfg(){
   try{
@@ -917,7 +932,7 @@ async function sbGet(key){
 async function sbPut(key,value){
   await sbFetch('/rest/v1/sync_kv',{method:'POST',headers:Object.assign(syncHeaders(),{'Prefer':'resolution=merge-duplicates'}),body:JSON.stringify([{key,value}])});
 }
-function localValue(key){return key==='contacts'?DB.contacts:key==='activities'?DB.activities:key==='labels'?DB.labels:key==='materials'?DB.materials:key==='alloc'?DB.alloc:key==='contactHistory'?DB.contactHistory:DB.orders}
+function localValue(key){return key==='contacts'?DB.contacts:key==='activities'?DB.activities:key==='labels'?DB.labels:key==='materials'?DB.materials:key==='alloc'?DB.alloc:key==='contactHistory'?DB.contactHistory:key==='colw'?DB.colw:DB.orders}
 function applyRemote(key,value,ts,alsoPushKey){
   applyingRemote=true;
   try{
@@ -926,6 +941,7 @@ function applyRemote(key,value,ts,alsoPushKey){
     else if(key==='materials')DB.materials=Array.isArray(value)?value:[];
     else if(key==='alloc')DB.alloc=Array.isArray(value)?value:[];
     else if(key==='contactHistory')DB.contactHistory=Array.isArray(value)?value:[];
+    else if(key==='colw')DB.colw=(value&&typeof value==='object')?value:{};
     else if(key==='labels'){DB.labels=(value&&typeof value==='object')?value:{};applyLabels()}
     else if(key==='archive'){
       // 旧版客户端只推 archive：本地无订单数据时迁移为物流订单
@@ -1021,6 +1037,8 @@ const DB={
   set alloc(v){if(lsSet('lg2_alloc',JSON.stringify(v)))schedulePush('alloc')},
   get contactHistory(){try{return JSON.parse(localStorage.getItem('lg2_contactHistory')||'[]')}catch(e){return []}},
   set contactHistory(v){if(lsSet('lg2_contactHistory',JSON.stringify(v)))schedulePush('contactHistory')},
+  get colw(){try{return JSON.parse(localStorage.getItem('lg2_colw')||'{}')}catch(e){return {}}},
+  set colw(v){if(lsSet('lg2_colw',JSON.stringify(v)))schedulePush('colw')},
   get logs(){try{return JSON.parse(localStorage.getItem('lg2_logs')||'[]')}catch(e){return []}},
   set logs(v){lsSet('lg2_logs',JSON.stringify(v))},
 };
@@ -2485,6 +2503,8 @@ function renderPreview(){
   if(!shown&&sfData.length){
     body.innerHTML='<tr><td colspan="10"><div class="empty">当前筛选无匹配数据</div></td></tr>';
   }
+  // 预览表是物流管理的主表，任何入口（导入/匹配/改格/切单）都会走这里，统一在这里挂拖拽把手并还原列宽
+  initColResizeAll();
 }
 
 document.getElementById('previewBody').addEventListener('change',function(e){
@@ -2984,11 +3004,12 @@ function refreshAll(){
   refreshBatchActSelect();
   refreshBatchMatSelect();
   if(typeof sfData!=='undefined'&&sfData.length)renderPreview();
+  initColResizeAll();
 }
 
 // ==================== 数据备份 / 环境诊断 ====================
 function backupPayload(){
-  return {v:1,app:'lg2',exportedAt:new Date().toISOString(),contacts:DB.contacts,orders:DB.orders,activities:DB.activities,labels:DB.labels,materials:DB.materials,alloc:DB.alloc,contactHistory:DB.contactHistory};
+  return {v:1,app:'lg2',exportedAt:new Date().toISOString(),contacts:DB.contacts,orders:DB.orders,activities:DB.activities,labels:DB.labels,materials:DB.materials,alloc:DB.alloc,contactHistory:DB.contactHistory,colw:DB.colw};
 }
 function downloadBackup(){
   try{
@@ -3019,12 +3040,13 @@ function restoreBackup(input){
       if(Array.isArray(d.materials))DB.materials=d.materials;
       if(Array.isArray(d.alloc))DB.alloc=d.alloc;
       if(Array.isArray(d.contactHistory))DB.contactHistory=d.contactHistory;
+      if(d.colw&&typeof d.colw==='object')DB.colw=d.colw;
     }finally{applyingRemote=false}
     ensureOrderCodes();
     if(!currentOrderId||!findOrder(currentOrderId))currentOrderId=(DB.orders[0]||{}).id||'';
     saveCurrentOrderId();
-    restoreSfView();applyLabels();refreshAll();
-    if(syncCfg){['contacts','orders','activities','labels','materials','alloc','contactHistory'].forEach(schedulePush)}
+    restoreSfView();applyLabels();refreshAll();applyColw();
+    if(syncCfg){['contacts','orders','activities','labels','materials','alloc','contactHistory','colw'].forEach(schedulePush)}
     hideDataAlert();
     addLog('从备份恢复：联系人 '+n+'、物流单 '+m);
     alert('恢复完成');
@@ -3447,7 +3469,8 @@ function renderAlloc(){
     cols.map((c,i)=>{
       const cls=[];
       if(aFilters[i]&&aFilters[i].size)cls.push('filtered');
-      return '<th data-c="'+i+'" class="'+cls.join(' ')+'" title="点击筛选" onclick="toggleAFilter(event,'+i+')">'+
+      const cw=colwPx('alloc',i);
+      return '<th data-c="'+i+'"'+(cw?' style="width:'+cw+'px;min-width:'+cw+'px"':'')+' class="'+cls.join(' ')+'" title="点击筛选" onclick="toggleAFilter(event,'+i+')">'+
         esc(c.t)+'<i class="fmark" onmousedown="event.stopPropagation()" onclick="event.stopPropagation();toggleAFilter(event,'+i+')"></i></th>';
     }).join('');
 
@@ -3490,6 +3513,79 @@ function renderAlloc(){
   document.getElementById('allocPager').innerHTML=pager;
   aPaintSel();
   aFreezeCols();
+}
+// ===== 四个数据表统一的「拖拽调列宽」：宽度存 DB.colw（本机 + 云同步 + 备份恢复）=====
+// 键 = 列在表头里的序号（0 起）。复选框列不参与。拖完落一次库，避免拖动过程刷屏。
+const COLW_MIN=48;
+const COLW_TABLES=['alloc','preview','contact','mat'];
+function colwMap(t){
+  const all=DB.colw||{};
+  const m=all[t]&&typeof all[t]==='object'?all[t]:{};
+  const out={};Object.keys(m).forEach(k=>{const n=Math.round(Number(m[k]));if(n>=COLW_MIN)out[k]=n});return out;
+}
+function colwPx(t,idx){const m=colwMap(t);return m[idx]||''}
+function colwSet(t,idx,px){
+  const all=DB.colw||{};
+  const m=all[t]&&typeof all[t]==='object'?Object.assign({},all[t]):{};
+  m[idx]=Math.max(COLW_MIN,Math.round(px));
+  all[t]=m;DB.colw=all;
+}
+function colwReset(t,idx){
+  const all=DB.colw||{};
+  const m=all[t]&&typeof all[t]==='object'?Object.assign({},all[t]):{};
+  delete m[idx];all[t]=m;DB.colw=all;
+}
+function applyColw(){
+  [['alloc','allocHead'],['preview','previewHead'],['contact','contactHead'],['mat','matHead']].forEach(function(pair){
+    const t=pair[0],head=document.getElementById(pair[1]);
+    if(!head)return;
+    const m=colwMap(t);
+    Array.prototype.forEach.call(head.children,function(th,i){
+      const w=m[i]||'';
+      th.style.width=w?w+'px':'';
+      th.style.minWidth=w?w+'px':'';
+    });
+  });
+  if(document.getElementById('allocWrap'))aFreezeCols();
+}
+// 给表头挂上拖拽把手；ignoreSel=该列不可拖（如复选框）。headId 必须是 <tr>。
+function wireColResize(t,headId,ignoreSel){
+  const head=document.getElementById(headId);
+  if(!head)return;
+  Array.prototype.forEach.call(head.children,function(th,i){
+    if(th.getAttribute('data-crw')==='1')return;
+    if(ignoreSel&&th.matches&&th.matches(ignoreSel))return;
+    th.setAttribute('data-crw','1');th.classList.add('rsz-idx');
+    const h=document.createElement('div');h.className='rsz';h.title='拖动调整列宽（双击恢复默认）';th.appendChild(h);
+    h.addEventListener('mousedown',function(e){
+      e.preventDefault();e.stopPropagation();
+      const startX=e.clientX,startW=th.offsetWidth||th.getBoundingClientRect().width;
+      if(!startW)return;
+      document.body.classList.add('rsz-active');h.classList.add('rsz-on');
+      function mv(ev){const w=Math.max(COLW_MIN,startW+(ev.clientX-startX));th.style.width=w+'px';th.style.minWidth=w+'px'}
+      function up(ev){
+        document.removeEventListener('mousemove',mv);document.removeEventListener('mouseup',up);
+        document.body.classList.remove('rsz-active');h.classList.remove('rsz-on');
+        const w=Math.max(COLW_MIN,startW+(ev.clientX-startX));th.style.width=w+'px';th.style.minWidth=w+'px';
+        colwSet(t,i,w);
+        if(t==='alloc')aFreezeCols();
+      }
+      document.addEventListener('mousemove',mv);document.addEventListener('mouseup',up);
+    });
+    h.addEventListener('dblclick',function(e){
+      e.preventDefault();e.stopPropagation();
+      th.style.width='';th.style.minWidth='';
+      colwReset(t,i);
+      if(t==='alloc')aFreezeCols();
+    });
+  });
+}
+function initColResizeAll(){
+  wireColResize('alloc','allocHead','input[type=checkbox],.cb-col');
+  wireColResize('preview','previewHead','input[type=checkbox],.cb-col');
+  wireColResize('contact','contactHead','input[type=checkbox],.cb-col');
+  wireColResize('mat','matHead',null);
+  applyColw();
 }
 // 冻结列：按实测宽度累计 left（量不到宽度时用兜底值），行首复选框 + 6 个固定列
 function aFreezeCols(){
