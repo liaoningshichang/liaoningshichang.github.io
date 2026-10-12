@@ -53,7 +53,7 @@ td{padding:0;border-bottom:1px solid #f0f0f0;white-space:nowrap}
 body.rsz-active{cursor:col-resize!important;user-select:none!important}
 body.rsz-active *{cursor:col-resize!important}
 /* 表头留出把手位，并给筛选箭头让开，避免重叠。sticky 本身就是定位祖先，能正确锚定 .rsz，不要改成 relative（会失去粘顶） */
-#previewHead th[data-col].rsz-idx,#contactWrap th.rsz-idx,#allocHead th.rsz-idx,.mat-scroll th.rsz-idx{min-width:44px;padding-right:14px}
+#previewHead th[data-col].rsz-idx,#contactWrap th.rsz-idx,#allocHead th.rsz-idx,.mat-scroll th.rsz-idx{padding-right:14px}
 #previewHead th.rsz-idx .fmark{right:10px}
 #allocWrap th[data-c].rsz-idx .fmark{right:10px}
 .chart-box h4 .legend{float:right;font-size:12px;font-weight:400;color:#666;display:flex;gap:12px;align-items:center}
@@ -246,8 +246,29 @@ tr:hover{background:#f8f9fc}
 .pager button:hover{border-color:#1a73e8;color:#1a73e8}
 .pager button:disabled{opacity:.4;cursor:default}
 .cb-col{text-align:center;width:32px}
-#contactBody td.csel{background:#d2e3fc!important;box-shadow:inset 0 0 0 1px #1a73e8}
-#contactBody td.csel input{background:rgba(255,255,255,.35)}
+/* 选区：格子之间不留蓝边框，只在整个选区最外围画一圈蓝框。
+   做法：每个选中格放一个绝对定位的填充层，四边都内缩 2px（相邻格的内缩叠在一起，
+   中间就出现一条 4px 白缝）；再给四条边界格子各画一条贴边的 2px 实线，拼成外框。
+   注意：物料分配表左侧列是内联的 position:sticky（冻结列），定位类不能盖掉它，
+   所以这里只对没有 frozen 的格子加 relative。 */
+#contactBody td.csel,#allocBody td.csel:not(.frozen){position:relative}
+#contactBody td.csel,#allocBody td.csel{background:#d2e3fc!important}
+#contactBody td.csel input,#allocBody td.csel input{background:rgba(255,255,255,.35)}
+#contactBody td.csel::before,#allocBody td.csel::before{
+  content:'';position:absolute;inset:2px;background:rgba(26,115,232,.16);pointer-events:none;z-index:1}
+#contactBody td.csel.sel-t::before,#allocBody td.csel.sel-t::before{top:0}
+#contactBody td.csel.sel-b::before,#allocBody td.csel.sel-b::before{bottom:0}
+#contactBody td.csel.sel-l::before,#allocBody td.csel.sel-l::before{left:0}
+#contactBody td.csel.sel-r::before,#allocBody td.csel.sel-r::before{right:0}
+#contactBody td.csel.sel-t::after,#allocBody td.csel.sel-t::after,
+#contactBody td.csel.sel-b::after,#allocBody td.csel.sel-b::after,
+#contactBody td.csel.sel-l::after,#allocBody td.csel.sel-l::after,
+#contactBody td.csel.sel-r::after,#allocBody td.csel.sel-r::after{
+  content:'';position:absolute;background:#1a73e8;pointer-events:none;z-index:2}
+#contactBody td.csel.sel-t::after,#allocBody td.csel.sel-t::after{left:0;right:0;top:0;height:2px}
+#contactBody td.csel.sel-b::after,#allocBody td.csel.sel-b::after{left:0;right:0;bottom:0;height:2px}
+#contactBody td.csel.sel-l::after,#allocBody td.csel.sel-l::after{top:0;bottom:0;left:0;width:2px}
+#contactBody td.csel.sel-r::after,#allocBody td.csel.sel-r::after{top:0;bottom:0;right:0;width:2px}
 #contactBody td{cursor:cell;user-select:none}
 #contactBody td input{user-select:text}
 #contactWrap th[data-c]{cursor:pointer;user-select:none;position:relative;padding-right:26px}
@@ -305,8 +326,7 @@ iframe[id^="sb__open-sandbox"]{display:none!important}
 #allocWrap th[data-c] .fmark::before{content:'▾'}
 #allocWrap th[data-c].filtered{background:#e8f0fe;color:#1a73e8}
 #allocWrap th.filtered .fmark{color:#1a73e8}
-#allocBody td.csel{background:#d2e3fc!important;box-shadow:inset 0 0 0 1px #1a73e8}
-#allocBody td.csel input{background:rgba(255,255,255,.35)}
+
 #allocBody td.col-total input{background:#f8f9fa;font-weight:600;text-align:right}
 #allocBody td.err-cell input{color:#ea4335}
 #allocBody tr.added{background:#f0f7ff}
@@ -331,12 +351,7 @@ iframe[id^="sb__open-sandbox"]{display:none!important}
 .chip-list{display:flex;flex-wrap:wrap;gap:6px;max-height:132px;overflow:auto;padding:6px;border:1px solid #eee;border-radius:6px}
 .chip{padding:3px 9px;border:1px solid #c5dafc;border-radius:12px;background:#f0f6ff;font-size:12px;cursor:pointer;color:#1a73e8;user-select:none}
 .chip:hover{background:#d2e3fc}
-.sp-list{max-height:270px;overflow:auto;border:1px solid #eee;border-radius:6px;padding:4px}
-.sp-item{display:flex;gap:8px;align-items:center;padding:6px 7px;border-bottom:1px solid #f4f4f4;font-size:13px;cursor:pointer}
-.sp-item:last-child{border-bottom:none}
-.sp-item:hover{background:#f0f6ff}
-.sp-item .nm{font-weight:500;color:#202124}
-.sp-item .sub{color:#888;font-size:12px}
+/* 系统内分配 */
 </style>
 </head>
 <body>
@@ -409,6 +424,16 @@ iframe[id^="sb__open-sandbox"]{display:none!important}
         <select class="filter-select" id="batchMatSelect"></select>
         <button class="btn btn-primary btn-sm" data-lk="btnApplyMat" onclick="batchApplyMaterial()">应用到选中</button>
         <span id="selCount" style="font-size:12px;color:#1a73e8"></span>
+      </div>
+
+      <div class="toolbar" style="gap:10px;align-items:center;flex-wrap:wrap">
+        <button class="btn btn-outline" data-lk="btnMatchAct" title="按顺丰回单的商品名称，模糊匹配到「新建活动」里已有的活动，自动填好每一行的礼品所属活动" onclick="autoMatchActivity()">按商品名称匹配活动</button>
+        <span id="trackPendingWrap" style="display:none;font-size:13px">
+          <button class="btn btn-gray" style="border-color:#f9ab00;color:#b06000" onclick="toggleTrackPending()" title="只看还没填物流单号的行，方便回头补录">
+            物流单号待更新 <b id="trackPendingCount">0</b>
+          </button>
+        </span>
+        <span id="trackPendingHint" style="display:none;font-size:12px;color:#b06000"></span>
       </div>
 
       <div class="preview-table" id="previewWrap">
@@ -530,29 +555,33 @@ iframe[id^="sb__open-sandbox"]{display:none!important}
   <div class="page active" id="page-alloc">
     <div class="toolbar">
       <button class="btn btn-gray" data-lk="btnAllocFill" onclick="allocBatchFill()">批量填数</button>
-      <button class="btn btn-danger" data-lk="btnAllocDel" onclick="allocDeleteRows()">删除选中行</button>
-      <button class="btn btn-outline" data-lk="btnPickStore" onclick="openStorePick()">从通讯录选门店</button>
+      <button class="btn btn-primary" data-lk="btnSysAlloc" onclick="openSysAllocModal()">系统内分配</button>
+      <button class="btn btn-outline" data-lk="btnImportAlloc" onclick="openImportAlloc()">按导入名单分配</button>
+      <input type="file" accept=".xlsx,.xls,.csv" id="allocRosterFile" style="display:none">
       <button class="btn btn-gray" data-lk="btnAddRowAlloc" onclick="allocAddRow()">+ 手动加行</button>
       <button class="btn btn-success" data-lk="btnExportAlloc" onclick="exportAllocXlsx()">导出xlsx</button>
       <input type="text" class="search-box" id="allocSearch" placeholder="搜索门店、收件人、地址…">
+      <button class="btn btn-danger" data-lk="btnAllocDel" onclick="allocDeleteRows()">删除选中行</button>
       <span style="font-size:12px;color:#999;margin-left:auto" data-lk="allocHint">点击单元格编辑，拖动框选后 Ctrl+C / Ctrl+V；单元格可输入 =公式</span>
     </div>
 
     <div class="mat-card" id="matCard">
       <div class="mat-card-h">
-        <b data-lk="matLedgerTitle">物料台账</b>
         <span class="mat-stat" id="matStat"></span>
-        <button class="btn btn-primary btn-sm" data-lk="btnAddMaterial2" onclick="openMatModal(-1)">+ 新增物料</button>
       </div>
       <div class="mat-scroll" id="matScroll">
         <table>
           <thead>
             <tr id="matHead">
-              <th style="min-width:150px" data-lk="thMatName">物料名称</th>
-              <th style="min-width:110px" data-lk="thMatCode">编号</th>
-              <th style="width:96px" data-lk="thMatHq">总部实发</th>
-              <th style="width:96px" data-lk="thMatMkt">市场下发</th>
-              <th style="width:112px" data-lk="thMatStep">箱规/步长</th>
+              <th style="min-width:130px" data-lk="thMatName">物料名称</th>
+              <th style="min-width:100px" data-lk="thMatProv">省仓代码</th>
+              <th style="width:88px" data-lk="thMatKind">种类</th>
+              <th style="min-width:120px" data-lk="thMatAct">所属活动</th>
+              <th style="width:84px" data-lk="thMatHq">入库总数</th>
+              <th style="width:84px" data-lk="thMatMkt">发货总数</th>
+              <th style="width:84px" data-lk="thMatStep">发货规格</th>
+              <th style="width:92px" data-lk="thMatStores">参加门店数</th>
+              <th style="width:78px" data-lk="thMatPer">每店数</th>
               <th style="width:86px" data-lk="thMatDone">已分配</th>
               <th style="width:86px" data-lk="thMatLeft">剩余</th>
               <th style="width:130px"></th>
@@ -561,7 +590,7 @@ iframe[id^="sb__open-sandbox"]{display:none!important}
           <tbody id="matBody"></tbody>
         </table>
       </div>
-      <div class="mat-empty" id="matEmpty">还没有物料：点右上角「+ 新增物料」建立台账（名称、市场下发数量、箱规），再从通讯录选门店开始分配。</div>
+      <div class="mat-empty" id="matEmpty">还没有物料：点工具栏「系统内分配」建立物料（省仓代码、名称、种类、所属活动、数量、规格），系统会自动平均分配到参加活动的门店。</div>
     </div>
 
     <div class="table-wrap" id="allocWrap">
@@ -788,71 +817,57 @@ iframe[id^="sb__open-sandbox"]{display:none!important}
 </div>
 <!-- 物料分配：新增/编辑物料 -->
 <div class="modal-overlay" id="matModal">
-  <div class="modal" style="max-width:440px">
-    <h3 id="matModalTitle">新增物料</h3>
-    <div class="form-group">
-      <label>物料名称 *</label>
-      <input id="matName" placeholder="如：品茗杯 / 玻璃杯">
+  <div class="modal" style="max-width:520px">
+    <h3 id="matModalTitle">系统内分配</h3>
+    <div style="display:flex;gap:8px">
+      <div class="form-group" style="flex:1">
+        <label>省仓代码 *</label>
+        <input id="matProv" placeholder="如：024DCB">
+      </div>
+      <div class="form-group" style="flex:1.4">
+        <label>物料名称 *</label>
+        <input id="matName" placeholder="如：品茗杯 / 玻璃杯">
+      </div>
     </div>
     <div class="form-group">
-      <label>编号（商品编号，导出发货单用）</label>
-      <input id="matCode" placeholder="如：SKU0001，可留空">
+      <label>种类 *</label>
+      <div style="display:flex;gap:16px;align-items:center;font-size:13px;padding-top:4px">
+        <label style="display:flex;gap:5px;align-items:center;cursor:pointer"><input type="radio" name="matKind" value="实物礼品" checked> 实物礼品</label>
+        <label style="display:flex;gap:5px;align-items:center;cursor:pointer"><input type="radio" name="matKind" value="活动物料"> 活动物料</label>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>所属活动</label>
+      <select id="matAct"><option value="">（不关联活动）</option></select>
     </div>
     <div style="display:flex;gap:8px">
       <div class="form-group" style="flex:1">
-        <label>总部实发</label>
+        <label>入库总数</label>
         <input id="matHq" inputmode="numeric" placeholder="0">
       </div>
       <div class="form-group" style="flex:1">
-        <label>市场下发（可分配）</label>
+        <label>发货总数</label>
         <input id="matMkt" inputmode="numeric" placeholder="0">
       </div>
-      <div class="form-group" style="flex:1">
-        <label>箱规/步长</label>
-        <input id="matStep" inputmode="numeric" placeholder="留空=不取整">
-      </div>
     </div>
-    <p style="font-size:12px;color:#999">「箱规/步长」留空表示分配时不按整箱取整；只在自动分配勾选取整时生效。</p>
+    <div style="display:flex;gap:8px;align-items:flex-end">
+      <div class="form-group" style="flex:1">
+        <label>发货规格</label>
+        <input id="matStep" inputmode="numeric" placeholder="1">
+      </div>
+      <label style="display:flex;gap:5px;align-items:center;font-size:13px;color:#555;white-space:nowrap;cursor:pointer;padding-bottom:10px">
+        <input type="checkbox" id="matNoSpec" onchange="matSpecToggle(this.checked)"> 无特殊规格
+      </label>
+    </div>
+    <div class="form-group">
+      <label>参加活动门店数 *</label>
+      <input id="matStores" inputmode="numeric" placeholder="如：20" oninput="matDistPreview()">
+    </div>
+    <p style="font-size:12px;color:#999">「发货规格」用于计算发放数（发货规格 × 门店发货数量），只统计实物礼品；「无特殊规格」即按 1 计。填好后系统按发货规格的整数倍自动平均分配，余数丢弃。</p>
+    <div class="aa-preview" id="matDistPreviewBox"></div>
     <div class="modal-actions">
       <button class="btn btn-gray" onclick="closeModal('matModal')">取消</button>
-      <button class="btn btn-primary" onclick="saveMatModal()">保存</button>
-    </div>
-  </div>
-</div>
-
-<!-- 物料分配：新建物料后按活动门店数量平均分配 -->
-<div class="modal-overlay" id="matDistModal">
-  <div class="modal" style="max-width:420px">
-    <h3>平均分配「<span id="mdMatName"></span>」</h3>
-    <p style="font-size:13px;color:#555;margin-bottom:10px">市场下发共 <b id="mdTotal"></b> 个。输入本次活动的门店数量，自动平均分配到下方分配表的每一行。</p>
-    <div class="form-group">
-      <label>活动门店数量 *</label>
-      <input id="mdStores" inputmode="numeric" placeholder="如：20" oninput="mdPreview()">
-    </div>
-    <div class="aa-preview" id="mdPreviewBox"></div>
-    <div class="modal-actions">
-      <button class="btn btn-gray" onclick="closeModal('matDistModal')">跳过</button>
-      <button class="btn btn-primary" id="mdApplyBtn" onclick="mdApply()">平均分配</button>
-    </div>
-  </div>
-</div>
-
-<!-- 物料分配：从通讯录选门店 -->
-<div class="modal-overlay" id="storePickModal">
-  <div class="modal" style="max-width:560px">
-    <h3>从通讯录选门店</h3>
-    <div style="display:flex;gap:8px;margin-bottom:10px;align-items:center">
-      <input type="text" class="search-box" id="spSearch" placeholder="搜索门店名称、代码、收货人…" style="flex:1;width:auto">
-      <label style="display:flex;gap:5px;align-items:center;font-size:13px;color:#555;white-space:nowrap;cursor:pointer">
-        <input type="checkbox" id="spAll" onchange="spToggleAll(this.checked)"> 全选当前结果
-      </label>
-      <span id="spCount" style="font-size:12px;color:#888"></span>
-    </div>
-    <div class="sp-list" id="spList"></div>
-    <p style="font-size:12px;color:#999;margin-top:8px">已在分配表中的门店会自动跳过，不会重复添加。</p>
-    <div class="modal-actions">
-      <button class="btn btn-gray" onclick="closeModal('storePickModal')">取消</button>
-      <button class="btn btn-primary" onclick="confirmStorePick()">加入分配表</button>
+      <button class="btn btn-primary" id="matSaveBtn" onclick="saveMatModal()">保存并平均分配</button>
     </div>
   </div>
 </div>
@@ -1125,7 +1140,7 @@ function fitContactCols(){
     for(let i=0;i<tr.children.length;i++){
       const el=tr.children[i].querySelector('input,select');
       if(!el||el.type==='checkbox')continue;
-      el.style.width=Math.max(maxs[i]+2,7)+'ch';
+      el.style.width=Math.max(maxs[i]+2,2)+'ch';
     }
   });
 }
@@ -1210,7 +1225,7 @@ function handleContactChange(e){
 // ---- 多单元格选区 / 复制粘贴 ----
 function cSelNorm(){if(!cSel)return null;return{r1:Math.min(cSel.r1,cSel.r2),r2:Math.max(cSel.r1,cSel.r2),c1:Math.min(cSel.c1,cSel.c2),c2:Math.max(cSel.c1,cSel.c2)}}
 function cPaintSel(){
-  document.querySelectorAll('#contactBody td.csel').forEach(td=>td.classList.remove('csel'));
+  document.querySelectorAll('#contactBody td.csel').forEach(td=>td.classList.remove('csel','sel-t','sel-b','sel-l','sel-r'));
   const s=cSelNorm();if(!s)return;
   const trs=[...document.querySelectorAll('#contactBody tr[data-vr]')];
   trs.forEach(tr=>{
@@ -1218,7 +1233,14 @@ function cPaintSel(){
     if(r<s.r1||r>s.r2)return;
     [...tr.children].forEach(td=>{
       const c=td.dataset.c;
-      if(c!==undefined&&+c>=s.c1&&+c<=s.c2)td.classList.add('csel');
+      if(c===undefined)return;
+      const ci=+c;
+      if(ci<s.c1||ci>s.c2)return;
+      td.classList.add('csel');
+      if(r===s.r1)td.classList.add('sel-t');
+      if(r===s.r2)td.classList.add('sel-b');
+      if(ci===s.c1)td.classList.add('sel-l');
+      if(ci===s.c2)td.classList.add('sel-r');
     });
   });
 }
@@ -1882,6 +1904,7 @@ const LABEL_DEFS=[
   ['btnExportCsv','「下载CSV」按钮','下载CSV'],
   ['btnNewAct','「新建活动」按钮','新建活动'],
   ['btnClearOrder','「清空当前单数据」按钮','清空当前单数据'],
+  ['btnMatchAct','「按商品名称匹配活动」按钮','按商品名称匹配活动'],
   ['batchActLabel','「批量设活动」标签','批量设活动：'],
   ['btnApplySel','「应用到选中」按钮','应用到选中'],
   ['batchMatLabel','「批量设物料」标签','批量设物料：'],
@@ -1921,19 +1944,22 @@ const LABEL_DEFS=[
   ['btnImportContacts','门店页「门店批量导入」按钮','门店批量导入'],
   ['contactHint','门店页编辑提示','点击单元格编辑，拖动框选后 Ctrl+C / Ctrl+V 复制粘贴'],
   ['tabAlloc','「物料分配」标签页','物料分配'],
-  ['btnAddMaterial2','台账「新增物料」按钮','+ 新增物料'],
   ['btnAllocFill','物料页「批量填数」按钮','批量填数'],
+  ['btnSysAlloc','物料页「系统内分配」按钮','系统内分配'],
+  ['btnImportAlloc','物料页「按导入名单分配」按钮','按导入名单分配'],
   ['btnAllocDel','物料页「删除选中行」按钮','删除选中行'],
-  ['btnPickStore','物料页「从通讯录选门店」按钮','从通讯录选门店'],
   ['btnAddRowAlloc','物料页「手动加行」按钮','+ 手动加行'],
   ['btnExportAlloc','物料页「导出xlsx」按钮','导出xlsx'],
   ['allocHint','物料分配编辑提示','点击单元格编辑，拖动框选后 Ctrl+C / Ctrl+V；单元格可输入 =公式'],
-  ['matLedgerTitle','「物料台账」标题','物料台账'],
   ['thMatName','物料台账「物料名称」列','物料名称'],
-  ['thMatCode','物料台账「编号」列','编号'],
-  ['thMatHq','物料台账「总部实发」列','总部实发'],
-  ['thMatMkt','物料台账「市场下发」列','市场下发'],
-  ['thMatStep','物料台账「箱规/步长」列','箱规/步长'],
+  ['thMatProv','物料台账「省仓代码」列','省仓代码'],
+  ['thMatKind','物料台账「种类」列','种类'],
+  ['thMatAct','物料台账「所属活动」列','所属活动'],
+  ['thMatHq','物料台账「入库总数」列','入库总数'],
+  ['thMatMkt','物料台账「发货总数」列','发货总数'],
+  ['thMatStep','物料台账「发货规格」列','发货规格'],
+  ['thMatStores','物料台账「参加门店数」列','参加门店数'],
+  ['thMatPer','物料台账「每店数」列','每店数'],
   ['thMatDone','物料台账「已分配」列','已分配'],
   ['thMatLeft','物料台账「剩余」列','剩余'],
 ];
@@ -2286,6 +2312,93 @@ function renderMatchInfo(){
     <div class="item ok"><span class="num">${matched}</span><span class="lbl">已匹配</span></div>
     <div class="item warn" ${un?'onclick="openMatchReport()" title="点击查看未匹配报告" style="cursor:pointer"':''}><span class="num">${un}</span><span class="lbl">未匹配</span></div>
     <div class="item"><span class="num">${withAct}</span><span class="lbl">已设活动</span></div>`;
+  renderTrackPending();
+}
+
+// ---------- 物流单号待更新：只看还没填运单号的行 ----------
+let trackPendingOnly=false;
+function trackPendingIdx(){
+  const out=[];
+  for(let i=0;i<sfData.length;i++){
+    const t=String(sfData[i].tracking==null?'':sfData[i].tracking).trim();
+    if(!t)out.push(i);
+  }
+  return out;
+}
+function renderTrackPending(){
+  const wrap=document.getElementById('trackPendingWrap');
+  const cnt=document.getElementById('trackPendingCount');
+  const hint=document.getElementById('trackPendingHint');
+  if(!wrap||!cnt)return;
+  const n=trackPendingIdx().length;
+  if(!sfData.length){wrap.style.display='none';if(hint)hint.style.display='none';return}
+  wrap.style.display='inline-block';
+  cnt.textContent=n;
+  if(hint){
+    hint.style.display=trackPendingOnly?'inline':'none';
+    hint.textContent=n?('只看待更新 '+n+' 行，点按钮恢复全部'):'';
+  }
+}
+function toggleTrackPending(){
+  if(!sfData.length)return;
+  trackPendingOnly=!trackPendingOnly;
+  clearPFilters();
+  if(trackPendingOnly){
+    // 用 pFilters 精确复用现有筛选通道：把「运单号为空」的行标出来
+    pFilters.tracking=new Set(['__BLANK__']);
+  }
+  renderPreview();
+  renderTrackPending();
+  updateSelCount();
+  addLog(trackPendingOnly?'切换到「物流单号待更新」视图（'+trackPendingIdx().length+' 行）':'退出「物流单号待更新」视图');
+  if(trackPendingOnly)flashTip('正在只看待补录物流单号的行',1800);
+}
+
+// ---------- 按顺丰商品名称模糊匹配活动 ----------
+function normAct(s){return String(s==null?'':s).toLowerCase().replace(/[\s_\-—－·，,。.()（）【】\[\]]/g,'')}
+function autoMatchActivity(){
+  if(!sfData.length){flashTip('还没有物流数据',1800);return}
+  const acts=DB.activities||[];
+  if(!acts.length){flashTip('「新建活动」里还没有活动，先去物流页新建活动',2600);return}
+  // 每个活动准备若干匹配键：活动名本身 + 零售通扫码名称 + 活动规则里的关键词
+  const keys=acts.map(a=>{
+    const variants=[a.name,a.scanName].filter(Boolean);
+    const kws=[];
+    // 活动名里切出 2 字以上片段做模糊命中（如「双十一赠品」→「双十一」「赠品」）
+    for(const v of variants){
+      const nv=normAct(v);
+      if(nv.length>=2)kws.push(nv);
+      const parts=String(v).split(/[的·\-—－_\/\s，,]+/).filter(x=>x.length>=2);
+      parts.forEach(p=>{const np=normAct(p);if(np.length>=2)kws.push(np)});
+    }
+    return {name:a.name,keys:kws};
+  }).filter(x=>x.keys.length);
+  let filled=0,touched=0;
+  const touchedIdx=[];
+  for(let i=0;i<sfData.length;i++){
+    const r=sfData[i];
+    const np=normAct(r.productName);
+    if(!np)continue;
+    let hit='';
+    // 最长键优先，避免短键抢命中
+    for(const k of keys){
+      for(const key of k.keys){
+        if(np.includes(key)||key.includes(np)){hit=k.name;break}
+      }
+      if(hit)break;
+    }
+    if(hit&&String(r.activity||'')!==hit){
+      r.activity=hit;filled++;touchedIdx.push(i);
+    }else if(hit){touched++}
+  }
+  if(filled>0){persistSf();renderMatchInfo();renderPreview();renderDashboard();renderOrderSelect()}
+  renderTrackPending();
+  if(filled===0){
+    flashTip(touched?('这 '+touched+' 行的商品名称已匹配上活动，没有新的要填'):('没有把商品名称对上活动，可在表格里手动选「礼品所属活动」'),3000);
+  }else{
+    addLog('按商品名称匹配活动：'+filled+' 行自动填入活动');
+    flashTip('✓ '+filled+' 行已自动匹配活动'+(touched?('，另 '+touched+' 行原本已匹配'):''),3200);
+  }
 }
 
 // 收件人姓名在门店库里命中了几家（>1 就无法唯一确定）
@@ -2951,19 +3064,25 @@ function renderDashboard(){
   // 活动参与数据
   const actStoreMap={};
   const actSessionMap={};
+  const actGiftMap={};
   for(const r of withAct){
     if(!actStoreMap[r.activity])actStoreMap[r.activity]=new Set();
     actStoreMap[r.activity].add(r.matchedStore);
     actSessionMap[r.activity]=(actSessionMap[r.activity]||0)+1;
+    const q=numOf(r.qty);
+    if(q>0)actGiftMap[r.activity]=(actGiftMap[r.activity]||0)+q;
   }
   const actNames=viewActs.map(a=>a.name);
+  const giftFmt=v=>numOf(v)>0?numOf(v).toLocaleString('zh-CN'):'0';
+  const giftOf=n=>actGiftMap[n]||0;
 
   // 市场活动汇总表
-  let sumHtml='<table><thead><tr><th>活动名称</th><th>参与门店数</th><th>起止日期</th><th>零售通扫码名称</th></tr></thead><tbody>';
+  let sumHtml='<table><thead><tr><th>活动名称</th><th>参与门店数</th><th>礼品发放数</th><th>起止日期</th><th>零售通扫码名称</th></tr></thead><tbody>';
   for(const a of viewActs){
     const stores=actStoreMap[a.name]?actStoreMap[a.name].size:0;
+    const gifts=giftOf(a.name);
     const dateStr=a.startDate?`${a.startDate} ~ ${a.endDate}`:'-';
-    sumHtml+=`<tr><td>${esc(a.name)}${orphans.includes(a.name)?' <span class="badge badge-gray">已删除</span>':''}</td><td><strong>${stores}</strong></td><td style="color:#888;font-size:12px">${dateStr}</td><td style="font-size:12px">${esc(a.scanName||'-')}</td></tr>`;
+    sumHtml+=`<tr><td>${esc(a.name)}${orphans.includes(a.name)?' <span class="badge badge-gray">已删除</span>':''}</td><td><strong>${stores}</strong></td><td><strong>${giftFmt(gifts)}</strong></td><td style="color:#888;font-size:12px">${dateStr}</td><td style="font-size:12px">${esc(a.scanName||'-')}</td></tr>`;
   }
   sumHtml+='</tbody></table>';
   document.getElementById('actSummaryBody').innerHTML=sumHtml;
@@ -2989,14 +3108,17 @@ function renderDashboard(){
   // 交叉表
   const areas=[...new Set(contacts.map(c=>c.area||'未分配'))].sort();
   const crossData={};
+  const crossGift={};
   for(const r of withAct){
     const area=storeAreaMap[r.matchedStore]||'未分配';
     const key=area+'||'+r.activity;
     if(!crossData[key])crossData[key]=new Set();
     crossData[key].add(r.matchedStore);
+    const q=numOf(r.qty);
+    if(q>0)crossGift[key]=(crossGift[key]||0)+q;
   }
 
-  let html='<table><thead><tr><th>小区/区域</th><th class="x-total">合计</th>'+actNames.map(a=>`<th>${esc(a)}</th>`).join('')+'</tr></thead><tbody>';
+  let html='<table><thead><tr><th>小区/区域</th><th class="x-total">合计</th><th>礼品发放数</th>'+actNames.map(a=>`<th>${esc(a)}</th>`).join('')+'</tr></thead><tbody>';
   const areaType=area=>{
     if(area.includes('授权'))return 'auth';
     if(area.includes('专卖')||area.includes('米家'))return 'mijia';
@@ -3004,15 +3126,23 @@ function renderDashboard(){
     if(cs.length)return cs.some(c=>String(c.channel||'').includes('授权'))?'auth':'mijia';
     return 'other';
   };
+  let colTotalGift=0;
   for(const area of areas){
-    let rowTotal=0;
+    let rowTotal=0,rowGift=0;
     const cells=[];
     for(const act of actNames){
-      const n=crossData[area+'||'+act]?crossData[area+'||'+act].size:0;
-      rowTotal+=n;
-      cells.push(`<td class="${n?'has-data':'no-data'}">${n||'-'}</td>`);
+      const key=area+'||'+act;
+      const n=crossData[key]?crossData[key].size:0;
+      const g=crossGift[key]||0;
+      rowTotal+=n;rowGift+=g;
+      cells.push(`<td class="${n?'has-data':'no-data'}" title="门店 ${n} · 礼品 ${giftFmt(g)}">${n||'-'}</td>`);
     }
-    html+=`<tr><td class="area-${areaType(area)}">${esc(area)}</td><td style="font-weight:600">${rowTotal}</td>`+cells.join('')+'</tr>';
+    colTotalGift+=rowGift;
+    html+=`<tr><td class="area-${areaType(area)}">${esc(area)}</td><td style="font-weight:600">${rowTotal}</td><td style="font-weight:600">${giftFmt(rowGift)}</td>`+cells.join('')+'</tr>';
+  }
+  if(areas.length){
+    const footCells=actNames.map(a=>`<td style="font-weight:600">${giftFmt(giftOf(a))}</td>`).join('');
+    html+=`<tr style="background:#f7f9fc;font-weight:600"><td>合计</td><td class="x-total"></td><td>${giftFmt(colTotalGift)}</td>${footCells}</tr>`;
   }
   html+='</tbody></table>';
   document.getElementById('crossTableBody').innerHTML=html;
@@ -3396,12 +3526,19 @@ function renderMats(){
     const done=used[m.id]||0;
     const mkt=m.mkt==null?'':String(m.mkt);
     const left=mkt.trim()===''?'':(numOf(mkt)-done);
+    const stores=numOf(m.stores);
+    const spec=(m.spec!=null&&m.spec!=='')?m.spec:(m.step!=null?m.step:'');
+    const per=stores>0&&numOf(mkt)>0?(Math.floor(numOf(mkt)/stores/(numOf(spec)>0?numOf(spec):1))*(numOf(spec)>0?numOf(spec):1)):'';
     return '<tr>'+
       '<td><input data-mi="'+i+'" data-mf="name" value="'+esc(m.name)+'" placeholder="物料名称"></td>'+
-      '<td><input data-mi="'+i+'" data-mf="code" value="'+esc(m.code)+'" placeholder="编号"></td>'+
+      '<td><input data-mi="'+i+'" data-mf="code" value="'+esc(m.code)+'" placeholder="省仓代码"></td>'+
+      '<td><input data-mi="'+i+'" data-mf="kind" value="'+esc(m.kind||'实物礼品')+'" placeholder="种类"></td>'+
+      '<td><input data-mi="'+i+'" data-mf="activity" value="'+esc(m.activity||'')+'" placeholder="所属活动"></td>'+
       '<td><input data-mi="'+i+'" data-mf="hq" value="'+esc(m.hq)+'" placeholder="0" inputmode="numeric"></td>'+
       '<td><input data-mi="'+i+'" data-mf="mkt" value="'+esc(m.mkt)+'" placeholder="0" inputmode="numeric"></td>'+
-      '<td><input data-mi="'+i+'" data-mf="step" value="'+esc(m.step)+'" placeholder="不取整" inputmode="numeric" title="留空 = 分配时不按整箱取整"></td>'+
+      '<td><input data-mi="'+i+'" data-mf="step" value="'+esc(spec)+'" placeholder="1" inputmode="numeric" title="发货规格，用于计算发放数"></td>'+
+      '<td><input data-mi="'+i+'" data-mf="stores" value="'+esc(m.stores||'')+'" placeholder="0" inputmode="numeric"></td>'+
+      '<td class="num">'+(per===''?'':fmtNum(per))+'</td>'+
       '<td class="num">'+fmtNum(done)+'</td>'+
       '<td class="num'+(left<0?' neg':'')+'">'+(left===''?'':fmtNum(left))+'</td>'+
       '<td class="op"><button class="btn btn-sm btn-gray" onclick="openMatModal('+i+')">编辑</button> <button class="btn btn-sm btn-danger" onclick="delMat('+i+')">删除</button></td>'+
@@ -3422,35 +3559,106 @@ function matFieldChange(e){
 }
 function openMatModal(i){
   const m=(i>=0&&DB.materials[i])?DB.materials[i]:null;
-  document.getElementById('matModalTitle').textContent=m?'编辑物料':'新增物料';
-  const set=(id,v)=>{document.getElementById(id).value=(v==null?'':String(v))};
+  document.getElementById('matModalTitle').textContent=m?'编辑物料 / 调整分配':'系统内分配';
+  const set=(id,v)=>{const el=document.getElementById(id);if(el)el.value=(v==null?'':String(v))};
+  // 省仓代码复用原「编号」code 字段（导出发货单时作为商品编号）
+  set('matProv',m?m.code:'');
   set('matName',m?m.name:'');
-  set('matCode',m?m.code:'');
   set('matHq',m?m.hq:'');
   set('matMkt',m?m.mkt:'');
-  set('matStep',m?m.step:'');
+  set('matStep',m?(m.spec!=null?m.spec:m.step):'');
+  set('matStores',m?m.stores:'');
+  // 种类
+  const kind=(m&&m.kind)?m.kind:'实物礼品';
+  document.querySelectorAll('input[name=matKind]').forEach(r=>{r.checked=(r.value===kind)});
+  // 所属活动下拉
+  const actSel=document.getElementById('matAct');
+  if(actSel){
+    const cur=m?String(m.activity||''):'';
+    actSel.innerHTML='<option value="">（不关联活动）</option>'+
+      DB.activities.map(a=>'<option value="'+esc(a.name)+'">'+esc(a.name)+'</option>').join('');
+    actSel.value=cur;
+  }
+  // 无特殊规格：spec<=1 或空 视为无特殊规格
+  const specRaw=m?(m.spec!=null?m.spec:m.step):'';
+  const noSpec=!(numOf(specRaw)>1);
+  const ns=document.getElementById('matNoSpec');if(ns)ns.checked=noSpec;
+  if(noSpec)set('matStep','1');
+  matDistPreview();
   document.getElementById('matModal').dataset.edit=m?i:-1;
   document.getElementById('matModal').classList.add('show');
-  setTimeout(()=>{const el=document.getElementById('matName');if(el){el.focus();el.select()}},60);
+  setTimeout(()=>{const el=document.getElementById('matProv');if(el)el.focus()},60);
+}
+function matSpecToggle(on){
+  const el=document.getElementById('matStep');
+  if(on){el.value='1';el.setAttribute('readonly','readonly');}
+  else{el.removeAttribute('readonly');el.value='';el.focus();}
+  matDistPreview();
+}
+// 系统内分配的平均分配：每店基准 = 发货总数 ÷ 参加活动门店数，向下取整到发货规格的整数倍；
+// 余数（发货总数 − 每店×门店数）按 1 为单位补给前几家，保证合计正好等于发货总数。
+function matDistCalc(){
+  const g=id=>String((document.getElementById(id)||{}).value||'').trim();
+  const ship=Math.max(0,numOf(g('matMkt')));
+  const stores=Math.max(1,Math.floor(numOf(g('matStores'))||0));
+  const typed=!!g('matStores');
+  const specRaw=g('matStep');
+  const spec=numOf(specRaw)>0?numOf(specRaw):1;
+  // 每店向下取整到 spec 的整数倍
+  const baseUnit=Math.floor(ship/stores/spec)*spec;
+  const remain=ship-baseUnit*stores;
+  return {ship,stores,typed,spec,per:baseUnit,remain,
+    rows: Math.min(stores, aAll.length)};
+}
+function matDistPreview(){
+  const box=document.getElementById('matDistPreviewBox');
+  if(!box)return;
+  const c=matDistCalc();
+  if(!c.typed){box.innerHTML='<div class="aa-note">输入参加活动门店数后，这里会显示每店分配数量。</div>';return}
+  if(!(c.ship>0)){box.innerHTML='<div class="aa-note">发货总数为 0，无法分配。</div>';return}
+  let h='<div>每店 <b>'+fmtNum(c.per)+'</b> 个（发货规格 '+fmtNum(c.spec)+' 的整数倍）</div>';
+  if(c.remain>0)h+='<div>余数 '+fmtNum(c.remain)+' 按 1 补给前 '+Math.min(c.remain,c.rows)+' 家，合计正好 '+fmtNum(c.ship)+'</div>';
+  h+='<div>将写入分配表 <b>'+c.rows+'</b> 行</div>';
+  if(c.stores!==aAll.length)h+='<div class="w">⚠ 参加活动 '+c.stores+' 家，分配表当前 '+aAll.length+' 行；按当前行数写入</div>';
+  box.innerHTML=h;
 }
 function saveMatModal(){
-  const name=document.getElementById('matName').value.trim();
+  const g=id=>String((document.getElementById(id)||{}).value||'').trim();
+  const prov=g('matProv'), name=g('matName');
+  if(!prov){alert('请填写省仓代码');return}
   if(!name){alert('请填写物料名称');return}
-  const g=id=>String(document.getElementById(id).value==null?'':document.getElementById(id).value).trim();
-  const obj={name,code:g('matCode'),hq:g('matHq'),mkt:g('matMkt'),step:g('matStep')};
+  const kindEl=document.querySelector('input[name=matKind]:checked');
+  const kind=kindEl?kindEl.value:'实物礼品';
+  const activity=(document.getElementById('matAct')||{}).value||'';
+  const hq=g('matHq'), mkt=g('matMkt'), stores=g('matStores');
+  const noSpec=(document.getElementById('matNoSpec')||{}).checked;
+  const spec=noSpec?'1':(g('matStep')||'1');
+  const obj={name,code:prov,hq,mkt,step:spec,spec,kind,activity,stores};
   const mats=DB.materials;
   const i=parseInt(document.getElementById('matModal').dataset.edit,10);
-  if(i>=0&&mats[i]){obj.id=mats[i].id;mats[i]=obj}
-  else{obj.id=uid();mats.push(obj)}
+  let newId;
+  if(i>=0&&mats[i]){obj.id=mats[i].id;mats[i]=obj;newId=obj.id}
+  else{obj.id=uid();mats.push(obj);newId=obj.id}
   DB.materials=mats;
   aColsCache=null;aCtxCache=null;
-  closeModal('matModal');
-  renderAlloc();
-  addLog((i>=0?'编辑':'新增')+'物料「'+name+'」');
-  // 新建物料且填了市场下发：立刻问活动门店数量，平均分配
-  if(i<0&&numOf(obj.mkt)>0){
-    if(aAll.length)openMatDist(obj.id);
-    else flashTip('物料已保存。分配表还没有门店：先「从通讯录选门店」，再回来分配',4000);
+  addLog((i>=0?'编辑':'系统内分配新建')+'物料「'+name+'」（'+kind+(activity?' · '+activity:'')+'）');
+  // 自动平均分配
+  const c=matDistCalc();
+  if(c.typed&&c.ship>0&&c.rows>0){
+    const cols=allocCols();
+    const col=cols.find(x=>String(x.mat)===String(newId));
+    if(col){
+      allocUndo=JSON.stringify(aAll);
+      aAll.forEach((r,idx)=>aSet(r,col,String(c.per+(idx<c.remain?1:0))));
+      aSave();aCtxCache=null;
+    }
+    closeModal('matModal');
+    renderAlloc();
+    flashTip('✓ 「'+name+'」已保存，按每店 '+fmtNum(c.per)+' 写入 '+c.rows+' 行',3200);
+  }else{
+    closeModal('matModal');
+    renderAlloc();
+    flashTip('✓ 「'+name+'」已保存',2000);
   }
 }
 function delMat(i){
@@ -3466,58 +3674,6 @@ function delMat(i){
   addLog('删除物料「'+(m.name||'')+'」');
 }
 function aSave(){DB.alloc=aAll}
-
-// ---------- 新建物料后：按活动门店数量平均分配 ----------
-let mdMatId=null;
-function openMatDist(matId){
-  const m=DB.materials.find(x=>String(x.id)===String(matId));
-  if(!m)return;
-  if(!aAll.length){flashTip('分配表还没有门店行：先「从通讯录选门店」，再回来分配',3500);return}
-  mdMatId=matId;
-  document.getElementById('mdMatName').textContent=m.name||'（未命名）';
-  document.getElementById('mdTotal').textContent=fmtNum(Math.max(0,numOf(m.mkt)));
-  document.getElementById('mdStores').value='';
-  mdPreview();
-  document.getElementById('matDistModal').classList.add('show');
-  setTimeout(()=>{const el=document.getElementById('mdStores');if(el)el.focus()},60);
-}
-function mdCompute(){
-  const m=DB.materials.find(x=>String(x.id)===String(mdMatId))||{};
-  const total=Math.max(0,numOf(m.mkt));
-  const raw=String(document.getElementById('mdStores').value||'').trim();
-  const n=Math.max(1,Math.floor(numOf(raw)));
-  const per=total>0&&raw?Math.floor(total/n):0;
-  const rem=total>0&&raw?(total-per*n):0;
-  return{total,n,per,rem,typed:!!raw,rows:aAll.slice()};
-}
-function mdPreview(){
-  const box=document.getElementById('mdPreviewBox');
-  const btn=document.getElementById('mdApplyBtn');
-  if(!box||!btn)return;
-  const c=mdCompute();
-  if(!(c.total>0)){box.innerHTML='<div class="aa-note">该物料没有填「市场下发」数量，无法分配。</div>';btn.disabled=true;return}
-  if(!c.typed){box.innerHTML='<div class="aa-note">输入门店数量后，这里会显示每店分配几个。</div>';btn.disabled=true;return}
-  btn.disabled=false;
-  let h='<div>每店 <b>'+fmtNum(c.per)+'</b> 个';
-  if(c.rem>0)h+='，前 '+c.rem+' 家各 +1（补余数，保证合计正好 '+fmtNum(c.total)+'）';
-  h+='</div><div>将写入分配表 <b>'+c.rows.length+'</b> 行</div>';
-  if(c.n!==c.rows.length)h+='<div class="w">⚠ 你输入 '+c.n+' 家，但分配表当前有 '+c.rows.length+' 行；仍按每店 '+fmtNum(c.per)+' 个写入全部行</div>';
-  box.innerHTML=h;
-}
-function mdApply(){
-  const c=mdCompute();
-  if(!(c.total>0)){alert('该物料没有市场下发数量');return}
-  if(!c.typed||!(c.n>0)){alert('请输入活动门店数量');return}
-  const cols=allocCols();
-  const col=cols.find(x=>String(x.mat)===String(mdMatId));
-  if(!col){alert('找不到该物料对应的列');return}
-  allocUndo=JSON.stringify(aAll);
-  c.rows.forEach((r,idx)=>aSet(r,col,String(c.per+(idx<c.rem?1:0))));
-  aSave();aCtxCache=null;renderAlloc();closeModal('matDistModal');
-  const m=DB.materials.find(x=>String(x.id)===String(mdMatId));
-  addLog('平均分配「'+(m?m.name:'')+'」'+fmtNum(c.total)+' → '+c.rows.length+' 行（每店 '+fmtNum(c.per)+'）');
-  flashTip('✓ 已按每店 '+fmtNum(c.per)+' 个写入 '+c.rows.length+' 行',3200);
-}
 
 // ---------- 渲染 ----------
 function afKey(v){return (v===''||v===null||v===undefined)?'__BLANK__':String(v)}
@@ -3601,7 +3757,7 @@ function renderAlloc(){
 }
 // ===== 四个数据表统一的「拖拽调列宽」：宽度存 DB.colw（本机 + 云同步 + 备份恢复）=====
 // 键 = 列在表头里的序号（0 起）。复选框列不参与。拖完落一次库，避免拖动过程刷屏。
-const COLW_MIN=48;
+const COLW_MIN=16;
 const COLW_TABLES=['alloc','preview','contact','mat'];
 // 每张表的默认列宽（首次渲染时按内容实测，缓存；用户没拖过的列用它）
 const colwDefaults={};
@@ -3781,14 +3937,21 @@ function allocBatchFill(){
 // ---------- 选区 / 复制粘贴 ----------
 function aSelNorm(){if(!aSel)return null;return{r1:Math.min(aSel.r1,aSel.r2),r2:Math.max(aSel.r1,aSel.r2),c1:Math.min(aSel.c1,aSel.c2),c2:Math.max(aSel.c1,aSel.c2)}}
 function aPaintSel(){
-  document.querySelectorAll('#allocBody td.csel').forEach(td=>td.classList.remove('csel'));
+  document.querySelectorAll('#allocBody td.csel').forEach(td=>td.classList.remove('csel','sel-t','sel-b','sel-l','sel-r'));
   const s=aSelNorm();if(!s)return;
   document.querySelectorAll('#allocBody tr[data-vr]').forEach(tr=>{
     const r=+tr.dataset.vr;
     if(r<s.r1||r>s.r2)return;
     [...tr.children].forEach(td=>{
       const c=td.dataset.c;
-      if(c!==undefined&&+c>=s.c1&&+c<=s.c2)td.classList.add('csel');
+      if(c===undefined)return;
+      const ci=+c;
+      if(ci<s.c1||ci>s.c2)return;
+      td.classList.add('csel');
+      if(r===s.r1)td.classList.add('sel-t');
+      if(r===s.r2)td.classList.add('sel-b');
+      if(ci===s.c1)td.classList.add('sel-l');
+      if(ci===s.c2)td.classList.add('sel-r');
     });
   });
 }
@@ -3917,52 +4080,97 @@ function toggleAFilter(e,ci){
   xfPop=pop;
 }
 
-// ---------- 从通讯录选门店 ----------
-let spFilter='';
-function openStorePick(){
-  spFilter='';
-  const sb=document.getElementById('spSearch');if(sb)sb.value='';
-  renderStorePick();
-  document.getElementById('storePickModal').classList.add('show');
+// ---------- 按导入名单分配（上传表格：门店代码/名称 + 物料列数量） ----------
+function openImportAlloc(){
+  if(typeof XLSX==='undefined'){alert('Excel 解析库未加载，请联网后刷新页面重试');return}
+  const f=document.getElementById('allocRosterFile');
+  if(f)f.click();
 }
-function spData(){
-  const kw=String(spFilter||'').toLowerCase();
-  return DB.contacts.filter(c=>!kw||['storeCode','storeName','recipient','phone','address'].some(k=>String(c[k]==null?'':c[k]).toLowerCase().includes(kw)));
-}
-function renderStorePick(){
-  const el=document.getElementById('spList');
-  if(!el)return;
-  const list=spData();
-  const have=new Set(aAll.map(r=>String(r.storeCode||'')+'||'+String(r.storeName||'')));
-  el.innerHTML=list.length?list.map(c=>{
-    const key=String(c.storeCode||'')+'||'+String(c.storeName||'');
-    const ex=have.has(key);
-    return '<label class="sp-item"'+(ex?' style="opacity:.45"':'')+'>'+
-      '<input type="checkbox" class="sp-cb" data-id="'+esc(c.id)+'"'+(ex?' disabled':'')+'>'+
-      '<span><span class="nm">'+esc(c.storeName||'（未命名门店）')+'</span> '+
-      '<span class="sub">'+esc(c.storeCode||'无代码')+' · '+esc(c.recipient||'')+' '+esc(c.phone||'')+'</span></span></label>';
-  }).join(''):'<div style="color:#aaa;font-size:13px;padding:16px;text-align:center">没有匹配的门店</div>';
-  const cnt=document.getElementById('spCount');
-  if(cnt)cnt.textContent='结果 '+list.length+' 家 · 已在表内 '+have.size+' 家';
-  const all=document.getElementById('spAll');if(all)all.checked=false;
-}
-function spToggleAll(on){document.querySelectorAll('#spList .sp-cb:not(:disabled)').forEach(cb=>cb.checked=on)}
-function confirmStorePick(){
-  const ids=[...document.querySelectorAll('#spList .sp-cb:checked')].map(c=>c.dataset.id);
-  if(!ids.length){alert('请先勾选要加入的门店');return}
-  let added=0;
-  ids.forEach(id=>{
-    const c=DB.contacts.find(x=>String(x.id)===String(id));
-    if(!c)return;
-    const key=String(c.storeCode||'')+'||'+String(c.storeName||'');
-    if(aAll.some(r=>String(r.storeCode||'')+'||'+String(r.storeName||'')===key))return;
-    aAll.push({id:uid(),storeCode:c.storeCode||'',storeName:c.storeName||'',recipient:c.recipient||'',phone:c.phone||'',address:c.address||'',weight:'',cells:{}});
-    added++;
+(function bindRosterFile(){
+  const f=document.getElementById('allocRosterFile');
+  if(!f)return;
+  f.addEventListener('change',function(){
+    const file=this.files&&this.files[0];
+    this.value='';
+    if(!file)return;
+    const rd=new FileReader();
+    rd.onload=e=>{
+      try{
+        const wb=XLSX.read(e.target.result,{type:'array'});
+        const ws=wb.Sheets[wb.SheetNames[0]];
+        const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+        applyRoster(rows);
+      }catch(err){alert('读取表格失败：'+err.message)}
+    };
+    rd.readAsArrayBuffer(file);
   });
-  if(!added){flashTip('所选门店都已在分配表中',2200);return}
-  aSave();aPage=1;renderAlloc();closeModal('storePickModal');
-  addLog('加入 '+added+' 家门店到物料分配');
-  flashTip('✓ 已加入 '+added+' 家门店',2200);
+})();
+// 在表头若干行里找「门店代码/门店名称」所在的那一行
+function rosterHeaderRow(rows){
+  const lim=Math.min(rows.length,10);
+  for(let i=0;i<lim;i++){
+    const r=rows[i]||[];
+    const has=r.some(c=>/门店代码|门店编码|门店名称|门店/.test(String(c==null?'':c)));
+    if(has)return i;
+  }
+  return -1;
+}
+function applyRoster(rows){
+  const hr=rosterHeaderRow(rows);
+  if(hr<0){alert('没找到门店列（表头需包含「门店代码」或「门店名称」）');return}
+  const headers=(rows[hr]||[]).map(h=>String(h==null?'':h).replace(/\s+/g,''));
+  const codeIdx=headers.findIndex(h=>/门店代码|门店编码/.test(h));
+  const nameIdx=headers.findIndex(h=>/门店名称|门店/.test(h));
+  if(codeIdx<0&&nameIdx<0){alert('表头没有「门店代码」/「门店名称」列');return}
+  // 物料列：表头名匹配现有物料名称（含省仓代码）
+  const mats=DB.materials;
+  const matCols=[];
+  headers.forEach((h,idx)=>{
+    if(idx===codeIdx||idx===nameIdx||!h)return;
+    const m=mats.find(x=>String(x.name||'').trim()===h)||mats.find(x=>String(x.code||'').trim()===h);
+    if(m)matCols.push({idx,mat:m});
+  });
+  if(!matCols.length){
+    alert('表头里没找到与现有物料匹配的列。\n表头列名需与「物料名称」或「省仓代码」完全一致，例如：门店代码 | 门店名称 | 品茗杯');
+    return;
+  }
+  const byCode=new Map(), byName=new Map();
+  DB.contacts.forEach(c=>{
+    const cc=String(c.storeCode||'').trim().toUpperCase();
+    const nn=String(c.storeName||'').trim();
+    if(cc&&!byCode.has(cc))byCode.set(cc,c);
+    if(nn&&!byName.has(nn))byName.set(nn,c);
+  });
+  let addedRows=0, filled=0;
+  allocUndo=JSON.stringify(aAll);
+  for(let i=hr+1;i<rows.length;i++){
+    const r=rows[i]||[];
+    const code=codeIdx>=0?String(r[codeIdx]==null?'':r[codeIdx]).trim().toUpperCase():'';
+    const name=nameIdx>=0?String(r[nameIdx]==null?'':r[nameIdx]).trim():'';
+    if(!code&&!name)continue;
+    let row=aAll.find(x=>code&&String(x.storeCode||'').trim().toUpperCase()===code)||
+           (name?aAll.find(x=>String(x.storeName||'').trim()===name):null);
+    if(!row){
+      const c=(code&&byCode.get(code))||(name&&byName.get(name));
+      if(c){
+        row={id:uid(),storeCode:c.storeCode||'',storeName:c.storeName||'',recipient:c.recipient||'',phone:c.phone||'',address:c.address||'',weight:'',cells:{}};
+      }else{
+        // 通讯录也没有：按代码/名称建一行空壳
+        row={id:uid(),storeCode:codeIdx>=0?String(r[codeIdx]==null?'':r[codeIdx]).trim():'',storeName:name,recipient:'',phone:'',address:'',weight:'',cells:{}};
+      }
+      aAll.push(row);addedRows++;
+    }
+    matCols.forEach(mc=>{
+      const v=String(r[mc.idx]==null?'':r[mc.idx]).trim();
+      if(v==='')return;
+      aSet(row,{k:'m:'+mc.mat.id,key:'m:'+mc.mat.id,mat:mc.mat.id,num:true},v);
+      filled++;
+    });
+  }
+  aSave();aColsCache=null;aCtxCache=null;aPage=1;
+  renderAlloc();
+  addLog('按导入名单分配：新增 '+addedRows+' 行，写入 '+filled+' 个数量');
+  flashTip('✓ 新增 '+addedRows+' 行 · 写入 '+filled+' 个数量',3000);
 }
 
 // ---------- 导出 xlsx ----------
@@ -4047,8 +4255,6 @@ function exportAllocXlsx(){
   if(mat)mat.addEventListener('change',matFieldChange);
   const ms=document.getElementById('allocSearch');
   if(ms)ms.addEventListener('input',e=>aDebounce(e.target.value));
-  const sp=document.getElementById('spSearch');
-  if(sp)sp.addEventListener('input',e=>{spFilter=e.target.value;renderStorePick()});
   const aResize=debounce(()=>aFreezeCols(),150);
   window.addEventListener('resize',aResize);
   window.addEventListener('load',()=>aFreezeCols());
