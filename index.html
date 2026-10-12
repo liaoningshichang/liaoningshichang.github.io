@@ -645,7 +645,7 @@ iframe[id^="sb__open-sandbox"]{display:none!important}
 <!-- 活动确认表导入结果 -->
 <div class="modal-overlay" id="chReportModal">
   <div class="modal" style="width:min(660px,96vw);max-width:660px">
-    <h3 data-lk="chRepTitle">活动确认表导入结果</h3>
+    <h3 data-lk="chRepTitle">门店信息更新检测结果</h3>
     <div id="chReportBody" style="margin-top:8px"></div>
     <div class="modal-actions">
       <button class="btn btn-gray" onclick="closeModal('chReportModal')" data-lk="chRepClose">关闭</button>
@@ -1435,7 +1435,7 @@ function exportContacts(){
   addLog('导出联系人');
 }
 
-// ==================== 活动确认表导入 / 门店信息历史 ====================
+// ==================== 门店信息更新检测 / 门店信息历史 ====================
 // 店长在飞书公示表里改过的收货人/收货电话/收货地址，导入后自动写回门店信息，旧值进历史
 const CH_FIELDS=[['storeName','门店名称'],['recipient','收货人'],['phone','收货电话'],['address','收货地址']];
 const CH_ALIASES={
