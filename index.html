@@ -543,10 +543,8 @@ iframe[id^="sb__open-sandbox"]{display:none!important}
     <div class="toolbar">
       <button class="btn btn-primary" data-lk="btnAddRow" onclick="addContactRow()">+ 新增行</button>
       <button class="btn btn-success" data-lk="btnExportContacts" onclick="exportContacts()">导出</button>
-      <input type="file" accept=".xlsx,.xls,.csv" id="contactFile" style="display:none">
-      <button class="btn btn-outline" data-lk="btnImportContacts" onclick="document.getElementById('contactFile').click()">批量导入门店信息</button>
       <input type="file" accept=".xlsx,.xls,.csv" id="cConfirmFile" style="display:none">
-      <button class="btn btn-outline" data-lk="btnImportConfirm" title="导入店长确认过的活动门店表，逐条核对收货人/电话/门店名/地址的变动后再决定是否更新" onclick="document.getElementById('cConfirmFile').click()">活动确认表信息比对</button>
+      <button class="btn btn-outline" data-lk="btnImportConfirm" title="导入店长确认过的门店信息表：收货人/电话/地址的变动逐条核对后写入（旧值入历史），没匹配到门店的行会作为新门店新增" onclick="document.getElementById('cConfirmFile').click()">门店信息比对更新</button>
       <button class="btn btn-outline" data-lk="btnViewHistory" onclick="openChHistory()">历史记录</button>
       <input type="text" class="search-box" id="contactSearch" placeholder="搜索门店、收货人、地址…">
       <span style="font-size:12px;color:#999;margin-left:auto" data-lk="contactHint">点击单元格编辑，拖动框选后 Ctrl+C / Ctrl+V 复制粘贴</span>
@@ -715,7 +713,7 @@ iframe[id^="sb__open-sandbox"]{display:none!important}
 <div class="modal-overlay" id="chReviewModal">
   <div class="modal" style="width:min(920px,96vw);max-width:920px">
     <h3 data-lk="chRevTitle">门店信息更新检测</h3>
-    <p class="hint" data-lk="chRevHint">下面是这张表和库里不一致的地方，逐条核对后再写入：勾选的才处理；选「替换」会更新现值并把旧值存进历史，选「仅存历史」只记一条历史不改现有信息，取消勾选则直接忽略。</p>
+    <p class="hint" data-lk="chRevHint">下面是这张表和库里不一致的地方，逐条核对后再写入：勾选的才处理；选「替换」会更新现值并把旧值存进历史，选「仅存历史」只记一条历史不改现有信息，取消勾选则直接忽略。库里没有的门店会列在下面作为「新增记录」，勾选后写入门店库。</p>
     <div id="chRevStat" style="font-size:13px;margin:6px 0"></div>
     <div style="max-height:48vh;overflow:auto;border:1px solid #eee;border-radius:8px">
       <table class="data-table" style="width:100%">
@@ -1472,43 +1470,6 @@ function addContactRow(){
 }
 
 document.getElementById('contactSearch').addEventListener('input',e=>cDebounce(e.target.value));
-const CONTACT_ALIASES={storeCode:['门店代码','门店编码','编码'],storeName:['门店名称','门店名','名称'],city:['市','城市'],district:['区','区县'],area:['小区','小区/区域','区域'],status:['门店状态','状态'],channel:['二级渠道','渠道'],recipient:['收货人','联系人','收件人'],phone:['收货号码','电话','手机','号码','收件手机'],address:['收货地址','地址','收件地址']};
-function mapContactRow(headers,row){
-  const map={};
-  for(const[k,ns]of Object.entries(CONTACT_ALIASES)){const idx=headers.findIndex(h=>ns.some(n=>h.includes(n)));if(idx>=0)map[k]=idx}
-  const g=k=>map[k]!==undefined?String(row[map[k]]==null?'':row[map[k]]).trim():'';
-  const sc=g('storeCode'),sn=g('storeName');
-  if(!sc&&!sn)return null;
-  return {id:uid(),storeCode:sc,storeName:sn,city:g('city'),district:g('district'),area:g('area'),status:g('status')||'营业中',channel:g('channel')||'直营',recipient:g('recipient'),phone:g('phone'),address:g('address')};
-}
-document.getElementById('contactFile').addEventListener('change',function(e){
-  const file=e.target.files[0];if(!file)return;
-  if(typeof XLSX==='undefined'){alert('Excel 解析库未加载，请联网后刷新页面重试');e.target.value='';return}
-  const reader=new FileReader();
-  reader.onload=function(ev){
-    try{
-      const wb=XLSX.read(ev.target.result,{type:'array'});
-      const ws=wb.Sheets[wb.SheetNames[0]];
-      const rows=XLSX.utils.sheet_to_json(ws,{header:1});
-      if(rows.length<2){alert('文件为空');return}
-      const headers=rows[0].map(h=>String(h).trim());
-      const contacts=[];let added=0;
-      for(let i=1;i<rows.length;i++){
-        const row=rows[i];if(!row||!row.length)continue;
-        const c=mapContactRow(headers,row);
-        if(!c)continue;
-        contacts.push(c);added++;
-      }
-      if(contacts.length){
-        if(confirm('导入 '+added+' 条联系人，是否覆盖现有数据？\n确定=覆盖，取消=追加')){
-          DB.contacts=contacts;
-        }else{DB.contacts=[...DB.contacts,...contacts]}
-      }
-      addLog('导入联系人 '+added+' 条');refreshAll();
-    }catch(err){alert('解析失败：'+err.message)}
-  };
-  reader.readAsArrayBuffer(file);e.target.value='';
-});
 
 function exportContacts(){
   if(typeof XLSX==='undefined'){alert('Excel 库未加载，请联网后刷新页面重试');return}
@@ -1528,7 +1489,14 @@ const CH_ALIASES={
   recipient:['收货人','收件人','联系人'],
   phone:['收货电话','收货手机','收货号码','联系电话','手机号','电话','手机'],
   address:['收货地址','收件地址'],
-  confirm:['门店信息确认','信息核对','门店信息核对']
+  confirm:['门店信息确认','信息核对','门店信息核对'],
+  // 以下列只在「新增门店记录」时写入，不参与变动比对。
+  // 单字别名（市/区/状态）要求表头完全相等，防止「市场活动」被当成市、「小区/区域」被当成区
+  city:['城市','市'],
+  district:['区县','区'],
+  area:['小区/区域','小区','区域'],
+  status:['门店状态','营业状态','状态'],
+  channel:['二级渠道','渠道']
 };
 function chNorm(field,v){
   if(field==='phone')return cleanPhone(v);
@@ -1553,7 +1521,10 @@ function chMapCols(headers){
   const map={};
   for(const[k,ns]of Object.entries(CH_ALIASES)){
     for(const alias of ns){
-      const idx=headers.findIndex(h=>h&&h.includes(alias));
+      const idx=headers.findIndex(h=>{
+        if(h==null||h==='')return false;
+        return alias.length<=1?h===alias:h.includes(alias);
+      });
       if(idx>=0){map[k]=idx;break}
     }
   }
@@ -1582,7 +1553,21 @@ function chDetect(matrix,src){
     if(!sc&&!sn)continue;
     rows++;
     const hit=byCode.has(sc)?byCode.get(sc):(sn&&byName.has(sn)?byName.get(sn):-1);
-    if(hit<0){unmatched.push({storeCode:g(cm.storeCode),storeName:g(cm.storeName)});continue}
+    if(hit<0){
+      // 库里没有：带出整行字段，交给弹窗作为「新增记录」确认后写入门店库
+      unmatched.push({
+        storeCode:g(cm.storeCode),storeName:g(cm.storeName),
+        recipient:cm.recipient!==undefined?g(cm.recipient):'',
+        phone:cm.phone!==undefined?g(cm.phone):'',
+        address:cm.address!==undefined?g(cm.address):'',
+        city:cm.city!==undefined?g(cm.city):'',
+        district:cm.district!==undefined?g(cm.district):'',
+        area:cm.area!==undefined?g(cm.area):'',
+        status:cm.status!==undefined?g(cm.status):'',
+        channel:cm.channel!==undefined?g(cm.channel):''
+      });
+      continue;
+    }
     matched++;
     if(cm.confirm!==undefined&&/有误|修改/.test(g(cm.confirm)))marked++;
     const c=contacts[hit];
@@ -1600,11 +1585,28 @@ function chDetect(matrix,src){
 // 用户在弹窗里选完后才落库：勾选=处理，替换=更新现值并记历史，仅存历史=只建记录不改现值
 function chApplyDetections(){
   if(!chPending)return;
-  const rows=[...document.querySelectorAll('#chRevBody tr[data-ci]')];
-  const contacts=DB.contacts.slice();let updated=0,added=0;
+  const rows=[...document.querySelectorAll('#chRevBody tr[data-ci],#chRevBody tr[data-new]')];
+  const contacts=DB.contacts.slice();let updated=0,added=0,addedStores=0,skippedNew=0;
   const hist=[];
   rows.forEach(tr=>{
     if(!tr.querySelector('.ch-rev-cb').checked)return;
+    // 库里没有的行：勾选后整条新增为门店记录
+    if(tr.dataset.new==='1'){
+      let rec=null;try{rec=JSON.parse(tr.dataset.rec||'')}catch(e){}
+      const sc=rec?cleanStr(rec.storeCode).toUpperCase():'',sn=rec?cleanStr(rec.storeName):'';
+      if(!rec||(!sc&&!sn)){skippedNew++;return}
+      const dup=contacts.some(c=>{
+        const csc=cleanStr(c.storeCode).toUpperCase(),csn=cleanStr(c.storeName);
+        return (sc&&csc===sc)||(sn&&csn===sn);
+      });
+      if(dup){skippedNew++;return}
+      contacts.push({id:uid(),storeCode:String(rec.storeCode||'').trim(),storeName:String(rec.storeName||'').trim(),
+        city:String(rec.city||'').trim(),district:String(rec.district||'').trim(),area:String(rec.area||'').trim(),
+        status:String(rec.status||'').trim()||'营业中',channel:String(rec.channel||'').trim(),
+        recipient:String(rec.recipient||'').trim(),phone:String(rec.phone||'').trim(),address:String(rec.address||'').trim()});
+      addedStores++;
+      return;
+    }
     const ci=+tr.dataset.ci,f=tr.dataset.field;
     const act=(tr.querySelector('.ch-rev-act')||{}).value||'replace';
     const nv=tr.dataset.to||'',ov=tr.dataset.from||'';
@@ -1614,10 +1616,10 @@ function chApplyDetections(){
     const label=(CH_FIELDS.find(p=>p[0]===f)||[])[1]||f;
     hist.push({id:uid(),storeCode:c.storeCode||'',storeName:c.storeName||'',field:f,fieldLabel:label,from:ov,to:nv,source:chPending.source,date:chPending.date,ts:Date.now(),mode:act==='new'?'仅存历史':'已替换'});
   });
-  if(updated)DB.contacts=contacts;
+  if(updated||addedStores)DB.contacts=contacts;
   if(hist.length)DB.contactHistory=[...hist,...DB.contactHistory].slice(0,3000);
-  addLog('门店信息更新检测「'+chPending.source+'」：读 '+chPending.rows+' 行，更新 '+updated+' 家门店 / 新增历史 '+added+' 条');
-  const r={...chPending,updated,changedFields:added,entries:hist};
+  addLog('门店信息更新检测「'+chPending.source+'」：读 '+chPending.rows+' 行，更新 '+updated+' 家门店 / 新增门店 '+addedStores+' 家 / 新增历史 '+added+' 条'+(skippedNew?'（'+skippedNew+' 行重复或无名称跳过）':''));
+  const r={...chPending,updated,changedFields:added,entries:hist,addedStores,skippedNew};
   chPending=null;
   closeModal('chReviewModal');
   refreshAll();renderChReport(r);renderChHistList();renderContactHistCells();
@@ -1641,7 +1643,7 @@ document.getElementById('cConfirmFile').addEventListener('change',function(e){
 });
 function renderChReview(r){
   const body=document.getElementById('chRevBody');
-  body.innerHTML=r.changes.map((c,i)=>`<tr data-ci="${c.ci}" data-field="${c.field}" data-to="${esc(c.to)}" data-from="${esc(c.from)}">
+  const changeRows=r.changes.map(c=>`<tr data-ci="${c.ci}" data-field="${c.field}" data-to="${esc(c.to)}" data-from="${esc(c.from)}">
     <td class="cb-col"><input type="checkbox" class="ch-rev-cb" checked></td>
     <td class="ch-rev-store">${esc(c.storeName||c.storeCode)}<span class="ch-rev-code">${esc(c.storeCode||'')}</span></td>
     <td>${esc(c.fieldLabel)}</td>
@@ -1651,12 +1653,21 @@ function renderChReview(r){
       <option value="replace">替换（更新现值，旧值入历史）</option>
       <option value="new">仅存历史（不改现值）</option>
     </select></td>
-  </tr>`).join('')||'<tr><td colspan="6" style="color:#999;padding:14px;text-align:center">没有需要处理的字段变动</td></tr>';
+  </tr>`);
+  const newRows=(r.unmatched||[]).map(u=>`<tr data-new="1" data-rec="${esc(JSON.stringify(u))}">
+    <td class="cb-col"><input type="checkbox" class="ch-rev-cb" checked></td>
+    <td class="ch-rev-store">${esc(u.storeName||u.storeCode)}<span class="ch-rev-code">${esc(u.storeCode||'')}</span></td>
+    <td style="color:#188038;font-weight:600">新增记录</td>
+    <td class="ch-rev-from">（库里没有）</td>
+    <td class="ch-rev-to">${esc([u.recipient&&('收货人 '+u.recipient),u.phone&&('电话 '+u.phone),u.address&&('地址 '+u.address)].filter(Boolean).join(' · ')||'（表里无收货信息）')}</td>
+    <td>新增到门店库</td>
+  </tr>`);
+  body.innerHTML=(changeRows.join('')+newRows.join(''))||'<tr><td colspan="6" style="color:#999;padding:14px;text-align:center">没有需要处理的字段变动</td></tr>';
   const el=document.getElementById('chRevStat');
   if(el)el.innerHTML='读取 <b>'+r.rows+'</b> 行 · 匹配 <b>'+r.matched+'</b> 家门店 · 待确认变动 <b>'+r.changes.length+'</b> 条'+
-    (r.unmatched.length?' · <span style="color:#d93025">'+r.unmatched.length+' 行没匹配到门店（已跳过）</span>':'');
+    (r.unmatched.length?' · <span style="color:#188038;font-weight:600">'+r.unmatched.length+' 行库里没有（将新增记录）</span>':'');
   const un=document.getElementById('chRevUn');
-  if(un)un.innerHTML=r.unmatched.length?'未匹配：'+r.unmatched.slice(0,20).map(u=>esc(u.storeCode||'')+' '+esc(u.storeName||'')).join('；')+(r.unmatched.length>20?' …':''):'';
+  if(un)un.innerHTML='';
   document.getElementById('chReviewModal').classList.add('show');
 }
 function chReviewAll(checked){document.querySelectorAll('.ch-rev-cb').forEach(cb=>cb.checked=checked)}
@@ -1664,6 +1675,7 @@ function renderChReport(r){
   const body=document.getElementById('chReportBody');
   let html='<div class="ch-rep-line">读取 <b class="num">'+r.rows+'</b> 行，匹配到 <b class="num">'+r.matched+'</b> 家门店</div>'+
     '<div class="ch-rep-line"><b class="num">'+r.updated+'</b> 家门店的现值已更新，共写入 <b class="num">'+r.changedFields+'</b> 条历史<span class="ch-rep-sub">来源：'+esc(r.source)+' · '+new Date().toISOString().slice(0,10)+'</span></div>';
+  if(r.addedStores)html+='<div class="ch-rep-line" style="color:#188038">新增门店 <b class="num">'+r.addedStores+'</b> 家（库里没有的行）</div>';
   if(r.marked)html+='<div class="ch-rep-line">店长在「门店信息确认」列标了「有误/已修改」的：<b class="num">'+r.marked+'</b> 家</div>';
   if(r.entries&&r.entries.length){
     html+='<div style="margin-top:10px;border-top:1px solid #eee;padding-top:8px;font-size:12.5px"><b>变动明细</b></div>';
@@ -1671,9 +1683,14 @@ function renderChReport(r){
     if(r.entries.length>80)html+='<div class="ch-rep-sub">…等共 '+r.entries.length+' 条，其余见「历史记录」</div>';
   }
   if(r.unmatched&&r.unmatched.length){
-    html+='<div class="ch-rep-warn"><b>'+r.unmatched.length+' 行没匹配到门店信息库（未写入）：</b><br>'+r.unmatched.slice(0,20).map(u=>esc(u.storeCode||'')+' '+esc(u.storeName||'')).join('；')+(r.unmatched.length>20?' …':'')+'</div>';
+    const added=r.addedStores||0,skip=r.skippedNew||0;
+    if(skip>0){
+      html+='<div class="ch-rep-warn"><b>'+r.unmatched.length+' 行库里没有：已新增 '+added+' 家，跳过 '+skip+' 家（代码/名称已存在或没有名称）：</b><br>'+r.unmatched.slice(0,20).map(u=>esc(u.storeCode||'')+' '+esc(u.storeName||'')).join('；')+(r.unmatched.length>20?' …':'')+'</div>';
+    }else if(!added){
+      html+='<div class="ch-rep-warn">'+r.unmatched.length+' 行库里没有，本次未新增（已取消勾选）</div>';
+    }
   }
-  if(!r.changedFields&&!(r.unmatched||[]).length)html+='<div class="ch-rep-line" style="color:#188038;margin-top:8px">✓ 没有按你的选择写入任何内容</div>';
+  if(!r.changedFields&&!r.addedStores)html+='<div class="ch-rep-line" style="color:#188038;margin-top:8px">✓ 没有按你的选择写入任何内容</div>';
   body.innerHTML=html;
   document.getElementById('chReportModal').classList.add('show');
 }
@@ -1994,7 +2011,7 @@ const LABEL_DEFS=[
   ['chRepTitle','门店信息更新检测·结果标题','门店信息更新检测结果'],
   ['chRepClose','门店信息更新检测·关闭按钮','关闭'],
   ['chRevTitle','门店信息更新检测·确认标题','门店信息更新检测'],
-  ['chRevHint','门店信息更新检测·确认说明','下面是这张表和库里不一致的地方，逐条核对后再写入：勾选的才处理；选「替换」会更新现值并把旧值存进历史，选「仅存历史」只记一条历史不改现有信息，取消勾选则直接忽略（不记录不保存）。'],
+  ['chRevHint','门店信息更新检测·确认说明','下面是这张表和库里不一致的地方，逐条核对后再写入：勾选的才处理；选「替换」会更新现值并把旧值存进历史，选「仅存历史」只记一条历史不改现有信息，取消勾选则直接忽略（不记录不保存）。库里没有的门店会列在下面作为「新增记录」，勾选后写入门店库。'],
   ['chRevCancel','门店信息更新检测·取消按钮','取消（都不写入）'],
   ['chRevOk','门店信息更新检测·写入按钮','按上面的选择写入'],
   ['chHistTitle','门店信息历史记录·标题','门店信息历史记录'],
@@ -2014,8 +2031,7 @@ const LABEL_DEFS=[
   ['matDetailHint','「物料明细」说明','礼品发放数只统计实物礼品，活动物料不计入'],
   ['btnAddRow','「新增行」按钮','+ 新增行'],
   ['btnExportContacts','门店页「导出」按钮','导出'],
-  ['btnImportContacts','门店页「批量导入门店信息」按钮','批量导入门店信息'],
-  ['btnImportConfirm','门店页「活动确认表信息比对」按钮','活动确认表信息比对'],
+  ['btnImportConfirm','门店页「门店信息比对更新」按钮','门店信息比对更新'],
   ['contactHint','门店页编辑提示','点击单元格编辑，拖动框选后 Ctrl+C / Ctrl+V 复制粘贴'],
   ['tabAlloc','「物料分配」标签页','物料分配'],
   ['btnAllocFill','物料页「批量填数」按钮','批量填数'],
