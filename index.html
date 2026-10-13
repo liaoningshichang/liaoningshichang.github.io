@@ -861,7 +861,23 @@ iframe[id^="sb__open-sandbox"]{display:none!important}
     </div>
     <div class="form-group">
       <label>所属活动</label>
-      <select id="matAct"><option value="">（不关联活动）</option></select>
+      <select id="matAct" onchange="matActNewToggle()"><option value="">（不关联活动）</option></select>
+      <div id="matActNewBox" style="display:none;border:1px dashed #c5dafc;background:#f8fbff;border-radius:8px;padding:10px;margin-top:6px">
+        <div class="form-group" style="margin-bottom:8px">
+          <label>新活动名称 *</label>
+          <input id="matActNewName" placeholder="如：辽宁春季厨房节">
+        </div>
+        <div style="display:flex;gap:8px">
+          <div class="form-group" style="flex:1;margin-bottom:0">
+            <label>开始日期</label>
+            <input type="date" id="matActNewStart">
+          </div>
+          <div class="form-group" style="flex:1;margin-bottom:0">
+            <label>结束日期</label>
+            <input type="date" id="matActNewEnd">
+          </div>
+        </div>
+      </div>
     </div>
     <div style="display:flex;gap:8px">
       <div class="form-group" style="flex:1">
@@ -3709,13 +3725,24 @@ function openMatModal(i){
   // 种类
   const kind=(m&&m.kind)?m.kind:'实物礼品';
   document.querySelectorAll('input[name=matKind]').forEach(r=>{r.checked=(r.value===kind)});
-  // 所属活动下拉
+  // 所属活动下拉：选已有活动，或最后一项「＋ 新建活动…」直接建
   const actSel=document.getElementById('matAct');
   if(actSel){
     const cur=m?String(m.activity||''):'';
-    actSel.innerHTML='<option value="">（不关联活动）</option>'+
+    const names=DB.activities.map(a=>String(a.name||''));
+    let opts='<option value="">（不关联活动）</option>'+
       DB.activities.map(a=>'<option value="'+esc(a.name)+'">'+esc(a.name)+'</option>').join('');
+    // 编辑时活动已被删掉/改名，也要能把原名显示出来，避免丢失
+    if(cur&&!names.includes(cur))opts+='<option value="'+esc(cur)+'">'+esc(cur)+'（已不在活动列表）</option>';
+    opts+='<option value="__NEW__">＋ 新建活动…</option>';
+    actSel.innerHTML=opts;
     actSel.value=cur;
+    const nb=document.getElementById('matActNewBox');
+    if(nb){nb.style.display='none';
+      const ni=document.getElementById('matActNewName');if(ni)ni.value='';
+      const ns1=document.getElementById('matActNewStart'),ns2=document.getElementById('matActNewEnd');
+      if(ns1)ns1.value='';if(ns2)ns2.value='';
+    }
   }
   // 无特殊规格：spec<=1 或空 视为无特殊规格
   const specRaw=m?(m.spec!=null?m.spec:m.step):'';
@@ -3732,6 +3759,15 @@ function matSpecToggle(on){
   if(on){el.value='1';el.setAttribute('readonly','readonly');}
   else{el.removeAttribute('readonly');el.value='';el.focus();}
   matDistPreview();
+}
+// 选中「＋ 新建活动…」时展开新建表单
+function matActNewToggle(){
+  const sel=document.getElementById('matAct');
+  const box=document.getElementById('matActNewBox');
+  if(!sel||!box)return;
+  const on=sel.value==='__NEW__';
+  box.style.display=on?'block':'none';
+  if(on){const ni=document.getElementById('matActNewName');if(ni)setTimeout(()=>ni.focus(),50)}
 }
 // 系统内分配的平均分配：每店基准 = 发货总数 ÷ 参加活动门店数，向下取整到发货规格的整数倍；
 // 余数（发货总数 − 每店×门店数）按 1 为单位补给前几家，保证合计正好等于发货总数。
@@ -3767,7 +3803,21 @@ function saveMatModal(){
   if(!name){alert('请填写物料名称');return}
   const kindEl=document.querySelector('input[name=matKind]:checked');
   const kind=kindEl?kindEl.value:'实物礼品';
-  const activity=(document.getElementById('matAct')||{}).value||'';
+  let activity=(document.getElementById('matAct')||{}).value||'';
+  if(activity==='__NEW__'){
+    const nm=String((document.getElementById('matActNewName')||{}).value||'').trim();
+    if(!nm){alert('请填写新活动名称');return}
+    const st=String((document.getElementById('matActNewStart')||{}).value||'').trim();
+    const en=String((document.getElementById('matActNewEnd')||{}).value||'').trim();
+    const acts=DB.activities;
+    let ex=acts.find(a=>String(a.name||'')===nm);
+    if(ex){if(st)ex.startDate=st;if(en)ex.endDate=en;}
+    else acts.push({name:nm,startDate:st,endDate:en});
+    DB.activities=acts;
+    activity=nm;
+    try{refreshBatchActSelect()}catch(e){}
+    addLog('在「系统内分配」里新建活动「'+nm+'」'+(st||en?'（'+(st||'?')+' ~ '+(en||'?')+'）':''));
+  }
   const hq=g('matHq'), mkt=g('matMkt'), stores=g('matStores');
   const noSpec=(document.getElementById('matNoSpec')||{}).checked;
   const spec=noSpec?'1':(g('matStep')||'1');
