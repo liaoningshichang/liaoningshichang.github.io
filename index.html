@@ -264,29 +264,31 @@ tr:hover{background:#f8f9fc}
 .pager button:hover{border-color:#1a73e8;color:#1a73e8}
 .pager button:disabled{opacity:.4;cursor:default}
 .cb-col{text-align:center;width:32px}
-/* 选区：选中的格子连成一块连续的浅蓝填充，只在整个选区最外围画一圈闭合的 2px 蓝框。
-   关键三点，缺一就会出现「格间有缝 / 外框不闭合」：
-   1) 选中格里的 input 透明，填充才是均匀一整块（否则每个格子上浮一层白）；
-   2) 表格是 border-collapse，行与行之间有 1px 灰线（td 的 border-bottom），
-      选区内部的灰线改成填充色使其隐形，选区底边的线改成蓝色，与 2px 蓝框齐平闭合；
-   3) 外框四边只由 sel-t/b/l/r 的 ::after 画贴边实线，拼成完整矩形。
+/* 选区：选中的格子连成一块连续的浅蓝填充，最外圈画闭合的 2px 蓝框。
+   画法（前两版的教训）：
+   1) 一个格子可能同时是角格（sel-t+sel-l 等），早先把「上边线」和「左边线」写在同一个
+      ::after 的 top/height/left/width 上会互相过约束覆盖，角上只剩一个 2px 小点 → 外框断角；
+      现在改成给 ::after 铺满整格、用 border 的四条边画线 —— border-*-width 可以叠加，
+      角格、单行选区（sel-t+sel-b）都能同时画出所有边，天然闭合。
+   2) 行与行之间有 td 的 border-bottom（1px），会在左右竖线上断出缝；
+      ::after 上下各外扩 1px（inset:-1px 0）盖住它，所以 csel 格子必须 overflow:visible。
+   3) 选中格里的 input 透明，填充才是均匀一整块；选区内部的行线染成填充色使其隐形。
    注意：物料分配表左侧列是内联的 position:sticky（冻结列），定位类不能盖掉它，
-   所以这里只对没有 frozen 的格子加 relative；frozen 格子靠背景色参与，外框由相邻格补齐。 */
+   所以这里只对没有 frozen 的格子加 relative；frozen 格子本身就是定位元素，::after 能正常锚定。 */
+#contactBody td.csel,#allocBody td.csel{overflow:visible!important}
 #contactBody td.csel,#allocBody td.csel:not(.frozen){position:relative}
 #contactBody td.csel,#allocBody td.csel{background:#d2e3fc!important}
 #contactBody td.csel input,#allocBody td.csel input{background:transparent!important}
 #contactBody td.csel:not(.sel-b),#allocBody td.csel:not(.sel-b){border-bottom-color:#d2e3fc!important}
 #contactBody td.csel.sel-b,#allocBody td.csel.sel-b{border-bottom-color:#1a73e8!important}
-/* 边框线：只画在选区外缘，2px 实线，闭合成一个完整矩形 */
-#contactBody td.csel.sel-t::after,#allocBody td.csel.sel-t::after,
-#contactBody td.csel.sel-b::after,#allocBody td.csel.sel-b::after,
-#contactBody td.csel.sel-l::after,#allocBody td.csel.sel-l::after,
-#contactBody td.csel.sel-r::after,#allocBody td.csel.sel-r::after{
-  content:'';position:absolute;background:#1a73e8;pointer-events:none;z-index:2}
-#contactBody td.csel.sel-t::after,#allocBody td.csel.sel-t::after{left:0;right:0;top:0;height:2px}
-#contactBody td.csel.sel-b::after,#allocBody td.csel.sel-b::after{left:0;right:0;bottom:0;height:2px}
-#contactBody td.csel.sel-l::after,#allocBody td.csel.sel-l::after{top:0;bottom:0;left:0;width:2px}
-#contactBody td.csel.sel-r::after,#allocBody td.csel.sel-r::after{top:0;bottom:0;right:0;width:2px}
+/* 边框：铺满整格（上下外扩 1px 盖行线），按需开启四条边 */
+#contactBody td.csel::after,#allocBody td.csel::after{
+  content:'';position:absolute;inset:-1px 0;pointer-events:none;
+  border:0 solid #1a73e8}
+#contactBody td.csel.sel-t::after,#allocBody td.csel.sel-t::after{border-top-width:2px}
+#contactBody td.csel.sel-b::after,#allocBody td.csel.sel-b::after{border-bottom-width:2px}
+#contactBody td.csel.sel-l::after,#allocBody td.csel.sel-l::after{border-left-width:2px}
+#contactBody td.csel.sel-r::after,#allocBody td.csel.sel-r::after{border-right-width:2px}
 #contactBody td{cursor:cell;user-select:none}
 #contactBody td input{user-select:text}
 #contactWrap th[data-c]{cursor:pointer;user-select:none;position:relative;padding-right:26px}
