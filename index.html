@@ -140,7 +140,7 @@ tr:hover{background:#f8f9fc}
 .cross-table h4 .tmark{display:inline-block;width:4px;height:11px;border-radius:2px;margin-right:4px;vertical-align:-1px}
 .cross-table table{font-size:12px}
 #crossTable table{width:max-content;min-width:100%}
-#crossTable th.x-total{background:#f1f3f4;color:#202124;font-weight:600}
+#crossTable th.x-total{background:#f1f3f4;color:#5f6368;font-weight:600}
 #crossTable td:nth-child(2){font-weight:600;color:#202124}
 .cross-table th{position:static;background:#f7f8fa;padding:7px 10px;text-align:center;font-size:12px;color:#5f6368;font-weight:600}
 .cross-table td{padding:6px 10px;text-align:center;border:1px solid #f0f0f0}
@@ -264,13 +264,19 @@ tr:hover{background:#f8f9fc}
 .pager button:hover{border-color:#1a73e8;color:#1a73e8}
 .pager button:disabled{opacity:.4;cursor:default}
 .cb-col{text-align:center;width:32px}
-/* 选区：选中的格子连成一块连续的浅蓝填充，只在整个选区最外围画一圈闭合的 2px 蓝框，
-   格与格之间不留白缝（填充铺满单元格，相邻格自然相接）。
+/* 选区：选中的格子连成一块连续的浅蓝填充，只在整个选区最外围画一圈闭合的 2px 蓝框。
+   关键三点，缺一就会出现「格间有缝 / 外框不闭合」：
+   1) 选中格里的 input 透明，填充才是均匀一整块（否则每个格子上浮一层白）；
+   2) 表格是 border-collapse，行与行之间有 1px 灰线（td 的 border-bottom），
+      选区内部的灰线改成填充色使其隐形，选区底边的线改成蓝色，与 2px 蓝框齐平闭合；
+   3) 外框四边只由 sel-t/b/l/r 的 ::after 画贴边实线，拼成完整矩形。
    注意：物料分配表左侧列是内联的 position:sticky（冻结列），定位类不能盖掉它，
    所以这里只对没有 frozen 的格子加 relative；frozen 格子靠背景色参与，外框由相邻格补齐。 */
 #contactBody td.csel,#allocBody td.csel:not(.frozen){position:relative}
 #contactBody td.csel,#allocBody td.csel{background:#d2e3fc!important}
-#contactBody td.csel input,#allocBody td.csel input{background:rgba(255,255,255,.35)}
+#contactBody td.csel input,#allocBody td.csel input{background:transparent!important}
+#contactBody td.csel:not(.sel-b),#allocBody td.csel:not(.sel-b){border-bottom-color:#d2e3fc!important}
+#contactBody td.csel.sel-b,#allocBody td.csel.sel-b{border-bottom-color:#1a73e8!important}
 /* 边框线：只画在选区外缘，2px 实线，闭合成一个完整矩形 */
 #contactBody td.csel.sel-t::after,#allocBody td.csel.sel-t::after,
 #contactBody td.csel.sel-b::after,#allocBody td.csel.sel-b::after,
@@ -3252,9 +3258,9 @@ function renderDashboard(){
     if(!matRows.length){
       mEl.innerHTML='<div style="padding:22px;text-align:center;color:#aaa;font-size:13px">暂无物料数据：在「物流管理」上传回单并匹配活动后，这里会按物料汇总发放情况</div>';
     }else{
-      let mTotalStores=0,mTotalOrders=0,mTotalGifts=0;
+      let mTotalStores=0,mTotalGifts=0;
       const body=matRows.map(a=>{
-        mTotalStores+=a.stores.size;mTotalOrders+=a.orders;mTotalGifts+=a.gifts;
+        mTotalStores+=a.stores.size;mTotalGifts+=a.gifts;
         const phy=a.kind!=='活动物料';
         const tag=phy?'<span class="tag tag-phy">实物礼品</span>':'<span class="tag tag-act">活动物料</span>';
         const giftCell=phy?giftFmt(a.gifts):'<span class="muted">不计入</span>';
@@ -3262,7 +3268,6 @@ function renderDashboard(){
           <td class="l" title="${esc(a.name)}">${esc(a.name)}</td>
           <td class="kind-cell">${tag}</td>
           <td class="r">${a.stores.size?fmtNum(a.stores.size):'<span class="zero">0</span>'}</td>
-          <td class="r">${a.orders?fmtNum(a.orders):'<span class="zero">0</span>'}</td>
           <td class="r">${giftCell}</td>
         </tr>`;
       }).join('');
@@ -3271,7 +3276,6 @@ function renderDashboard(){
           <th class="l" style="min-width:200px">物料名称</th>
           <th style="min-width:96px">种类</th>
           <th class="r" style="min-width:90px">涉及门店数</th>
-          <th class="r" style="min-width:96px">发货单数</th>
           <th class="r" style="min-width:110px">礼品发放数</th>
         </tr></thead>
         <tbody>${body}</tbody>
@@ -3279,7 +3283,6 @@ function renderDashboard(){
           <td class="l">合计（${matRows.length} 项）</td>
           <td></td>
           <td class="r">${fmtNum(mTotalStores)}</td>
-          <td class="r">${fmtNum(mTotalOrders)}</td>
           <td class="r">${giftFmt(mTotalGifts)}</td>
         </tr></tfoot>
       </table>`;
