@@ -1142,11 +1142,25 @@ function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2
 function addLog(msg){const l=DB.logs;l.unshift({msg,time:new Date().toLocaleString('zh-CN')});if(l.length>50)l.length=50;DB.logs=l;}
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
 function cleanStr(s){return String(s||'').replace(/[\u0000-\u001f\u007f-\u009f\u200b\u200c\u200d\u200e\u200f\u202a-\u202e\u2060-\u2064\u2066-\u2069\ufeff\u00ad\u180e]/g,'').replace(/\s+/g,'').trim()}
+// 承运商（德邦等）会给手机号打码：138****1234 / 138xxxx1234 —— 打码号没有使用价值，
+// 一律视为「没有号」：导入时清空、匹配时不参与、导出时用门店库的号兜底
+function maskedPhone(p){
+  p=String(p||'');
+  return /[*＊]/.test(p)||/\d[xXＸ]/.test(p);
+}
 function cleanPhone(s){
+  if(maskedPhone(s))return '';
   let p=String(s||'').replace(/\D/g,'');
   if(p.length===13&&p.slice(0,2)==='86')p=p.slice(2);
   else if(p.length===14&&p.slice(0,3)==='086')p=p.slice(3);
   return p;
+}
+// 表里显示 / 复制 / 导出用的手机号：原号可用就用原号，打码或空则回落到匹配门店在库里的号
+function phoneOrStore(r){
+  const p=String(r.phone||'');
+  if(p&&!maskedPhone(p))return p;
+  const c=r.matchedStore?DB.contacts.find(x=>x.storeName===r.matchedStore):null;
+  return (c&&c.phone)||'';
 }
 // 地址归一化 + 打分：门店地址稳定、收件手机号常变，所以匹配以地址为准
 const ADDR_MIN=0.5;
@@ -2354,7 +2368,7 @@ function parseSF(file,orderTime,note){
       if(ci.tracking<0){alert('未找到运单号列（支持：运单号 / 快递单号 / 物流单号）');return}
       const onlyWH=ci.warehouse>=0;
       if(!onlyWH&&!confirm('表头里没有找到「仓库代码」列，无法只导入 '+SF_WAREHOUSE+' 仓的订单。\n确定＝导入全部数据　取消＝放弃本次导入'))return;
-      let skippedWH=0;
+      let skippedWH=0,maskedN=0;
       sfData=[];
       for(let i=1;i<rows.length;i++){
         const row=rows[i];if(!row||!row.length)continue;
@@ -2363,7 +2377,9 @@ function parseSF(file,orderTime,note){
         if(onlyWH&&g('warehouse').replace(/\s+/g,'').toUpperCase()!==SF_WAREHOUSE){skippedWH++;continue}
         // 数量列缺失或该行留空 → 默认按 1 件计（顺丰回单常常不带数量，但每条记录至少是一件货）
         const q=parseFloat(g('qty'));
-        sfData.push({tracking,name:g('name'),phone:g('phone'),address:g('address'),productCode:g('productCode'),productName:g('productName'),qty:(ci.qty>=0&&!isNaN(q))?q:1,matchedStore:'',activity:''});
+        const ph=g('phone');
+        if(maskedPhone(ph)){maskedN++;sfData.push({tracking,name:g('name'),phone:'',address:g('address'),productCode:g('productCode'),productName:g('productName'),qty:(ci.qty>=0&&!isNaN(q))?q:1,matchedStore:'',activity:''})}
+        else sfData.push({tracking,name:g('name'),phone:ph,address:g('address'),productCode:g('productCode'),productName:g('productName'),qty:(ci.qty>=0&&!isNaN(q))?q:1,matchedStore:'',activity:''});
       }
       if(!sfData.length){
         alert(onlyWH&&skippedWH?('文件里 '+skippedWH+' 条记录的仓库代码都不是 '+SF_WAREHOUSE+'，未导入任何数据'):'未读取到有效数据');
@@ -2383,6 +2399,11 @@ function parseSF(file,orderTime,note){
       renderOrderSelect();
       renderDashboard();
       addLog('导入顺丰回单 '+sfData.length+' 条'+(skippedWH?'（已过滤 '+skippedWH+' 条非'+SF_WAREHOUSE+'仓）':'')+'（'+orderLabel(ord)+'）');
+      if(maskedN){
+        const filled=sfData.filter(r=>!r.phone&&r.matchedStore&&DB.contacts.some(c=>c.storeName===r.matchedStore&&c.phone)).length;
+        addLog('其中 '+maskedN+' 条手机号被打码，已按门店库补全 '+filled+' 条');
+        flashTip('⚠️ '+maskedN+' 条手机号被打码（如 138****1234），已按门店库补全'+(filled?' '+filled+' 条':'')+'；未补全的请到门店信息页核对',4200);
+      }
       if(!openMatActModal())finishImportReport();
     }catch(err){alert('解析失败：'+err.message)}
   };
@@ -2471,6 +2492,8 @@ if(matActListEl)matActListEl.addEventListener('input',e=>{
 function matchAll(){
   const list=DB.contacts.map(c=>({c,a:normAddr(c.address),p:cleanPhone(c.phone),n:normAddr(c.storeName),rn:normName(c.recipient)}));
   for(const row of sfData){
+    // 老数据里可能已存有打码号（138****1234），重新匹配时一并清掉，再用门店库的号补
+    if(maskedPhone(row.phone))row.phone='';
     row.matchedStore='';
     const rA=normAddr(row.address),rP=cleanPhone(row.phone),rN=normName(row.name);
     if(!rA&&!rP&&!rN)continue;
@@ -2638,6 +2661,11 @@ function rptPick(i,name){
   const r=sfData[i];
   if(!r||r.matchedStore===name)return;
   r.matchedStore=name;
+  // 手机号为空或是打码号时，用门店库的号补齐
+  if(!r.phone||maskedPhone(r.phone)){
+    const c=DB.contacts.find(x=>x.storeName===name);
+    if(c&&c.phone)r.phone=c.phone;
+  }
   persistSf();renderMatchInfo();renderPreview();updateSelCount();renderOrderSelect();renderDashboard();
   addLog('手动指定门店：'+(r.tracking||('第'+(i+1)+'行'))+' → '+name);
   openMatchReport();
@@ -2831,7 +2859,7 @@ function renderPreview(){
       <td><input data-f="productName" data-i="${i}" list="matOpts" value="${esc(r.productName)}" placeholder="物料名称" style="font-size:12px;padding:5px 6px"></td>
       <td style="text-align:center">${r.qty}</td>
       <td>${esc(r.name)}</td>
-      <td style="font-size:11px">${esc(r.phone)}</td>
+      <td style="font-size:11px">${esc(phoneOrStore(r))}</td>
       <td class="p-code" data-code="${esc(code)}">${esc(code)}</td>
       <td class="${r.matchedStore?'cell-matched':'cell-unmatched'}">
         <input list="storeOpts" data-f="matchedStore" data-i="${i}" value="${esc(r.matchedStore)}" placeholder="选择或输入门店" style="font-size:12px;padding:5px 6px">
@@ -2881,8 +2909,8 @@ document.getElementById('previewBody').addEventListener('change',function(e){
       if(codeCell){codeCell.textContent=code;codeCell.setAttribute('data-code',code)}
       tr.children[7].className=v?'cell-matched':'cell-unmatched';
       tr.children[9].innerHTML=v?'<span class="badge badge-green">已匹配</span>':'<span class="badge badge-red">未匹配</span>';
-      // 手机号为空时，选完门店自动用门店库里的号码补齐（显示+存数据）
-      if(!sfData[i].phone&&v){
+      // 手机号为空或是打码号时，选完门店自动用门店库里的号码补齐（显示+存数据）
+      if((!sfData[i].phone||maskedPhone(sfData[i].phone))&&v){
         const c=DB.contacts.find(x=>x.storeName===v);
         if(c&&c.phone){
           sfData[i].phone=c.phone;
@@ -2940,6 +2968,7 @@ function pvSelected(){
 function pvHeaderLine(){return PV_COLS.map(c=>c[1]).join('\t')}
 function pvLine(r){
   return PV_COLS.map(c=>{
+    if(c[0]==='phone')return phoneOrStore(r);
     const v=r[c[0]];
     if(c[0]==='qty')return String(v==null||v===''?0:v);
     return String(v==null?'':v);
@@ -3048,6 +3077,7 @@ function pvPasteText(text){
         if(v==null)return;
         if(c[0]==='qty'){if(v==='')return;const n=parseFloat(v);if(!isNaN(n))t.qty=n}
         else if(c[0]==='tracking'&&!v)return;
+        else if(c[0]==='phone')t.phone=maskedPhone(v)?'':v;
         else t[c[0]]=v;
       });
       const a=addrOf(r);
@@ -3067,7 +3097,7 @@ function pvPasteText(text){
     sfData.push({
       tracking:tracking,
       name:val(r,3)||'',
-      phone:val(r,4)||'',
+      phone:maskedPhone(val(r,4))?'':(val(r,4)||''),
       address:addrOf(r)||'',
       productCode:'',
       productName:product,
@@ -3157,7 +3187,7 @@ function exportCSV(){
     return s.includes(',')||s.includes('"')||s.includes('\n')?'"'+s.replace(/"/g,'""')+'"':s;
   };
   for(const r of sfData){
-    const row={'物料名称':r.productName,'所属活动':r.activity,'数量':r.qty,'快递单号':r.tracking,'门店代码':storeCodeOf(r.matchedStore)||r.storeCode||'','门店名称':r.matchedStore,'收件人姓名':r.name,'收件电话':r.phone,'收货地址':r.address};
+    const row={'物料名称':r.productName,'所属活动':r.activity,'数量':r.qty,'快递单号':r.tracking,'门店代码':storeCodeOf(r.matchedStore)||r.storeCode||'','门店名称':r.matchedStore,'收件人姓名':r.name,'收件电话':phoneOrStore(r),'收货地址':r.address};
     csv+=headers.map(h=>cell(row[h])).join(',')+'\n';
   }
   const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});
