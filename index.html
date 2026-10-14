@@ -420,7 +420,6 @@ iframe[id^="sb__open-sandbox"]{display:none!important}
       <span style="font-size:13px;color:#666" data-lk="historyLabel">历史物流单</span>
       <select id="orderSelect" class="filter-select" onchange="switchOrder(this.value)" style="max-width:300px"></select>
       <button class="btn btn-success" data-lk="btnExportCsv" onclick="exportCSV()">下载CSV</button>
-      <button class="btn btn-outline" data-lk="btnNewAct" onclick="openActModal()">新建活动</button>
     </div>
 
     <div class="drop-zone" id="dropZone" onclick="handleUploadClick(event)">
@@ -654,14 +653,6 @@ iframe[id^="sb__open-sandbox"]{display:none!important}
           <label>零售通扫码名称</label>
           <input id="newActScanName" placeholder="如：十一刮刮乐扫码">
         </div>
-        <div class="form-group" style="flex:2;min-width:240px">
-          <label>活动规则</label>
-          <input id="newActRule" placeholder="如：到店消费满99元参与抽奖">
-        </div>
-      </div>
-      <div class="form-group" style="margin-top:8px">
-        <label>本活动包含的物料 <span style="font-weight:400;color:#999">（可多选；活动物料不计入礼品发放数）</span></label>
-        <select id="newActMats" multiple size="4" style="width:100%;padding:6px 8px;border:1px solid #ddd;border-radius:6px;font-size:13px;background:#fff"></select>
       </div>
     </div>
     <div id="actEditList"></div>
@@ -1153,18 +1144,7 @@ function switchTab(name){
   else if(name==='alloc')renderAlloc();
 }
 document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>switchTab(t.dataset.page)));
-function openActModal(){renderActEditList();fillActMatSel();document.getElementById('actModal').classList.add('show')}
-function fillActMatSel(){
-  const sel=document.getElementById('newActMats');
-  if(!sel)return;
-  const mats=DB.materials||[];
-  sel.innerHTML=mats.length
-    ? mats.map(m=>{
-        const k=m.kind||'实物礼品';
-        return '<option value="'+esc(m.id)+'">'+esc(m.name||'（未命名物料）')+' · '+esc(k)+'</option>';
-      }).join('')
-    : '<option value="" disabled>还没有物料：先去「物料台账」添加物料</option>';
-}
+function openActModal(){renderActEditList();document.getElementById('actModal').classList.add('show')}
 function closeModal(id){document.getElementById(id).classList.remove('show')}
 document.querySelectorAll('.modal-overlay').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('show')}));
 
@@ -1746,13 +1726,7 @@ function renderActEditList(){
       </div>
       <div class="act-edit-row" style="border:none;padding-top:0">
         <input type="text" value="${esc(a.scanName||'')}" onchange="DB.activities[${i}].scanName=this.value;DB.activities=DB.activities" placeholder="零售通扫码名称" style="font-size:12px">
-        <input type="text" value="${esc(a.rule||'')}" onchange="DB.activities[${i}].rule=this.value;DB.activities=DB.activities" placeholder="活动规则" style="font-size:12px">
       </div>
-      <div style="padding-top:4px;font-size:12px;color:#555"><span style="color:#999">物料：</span>${
-        (a.matIds&&a.matIds.length)
-          ? a.matIds.map(id=>{const m=(DB.materials||[]).find(x=>String(x.id)===String(id));return esc(m?(m.name||'（未命名物料）'):('已删除物料'))}).join('、')
-          : '<span style="color:#bbb">未关联</span>'
-      }</div>
     </div>
   `).join('')||'<div style="color:#aaa;font-size:13px;padding:10px 0">暂无活动</div>';
 }
@@ -1762,21 +1736,16 @@ function addActivity(){
   const sd=document.getElementById('newActStart').value;
   const ed=document.getElementById('newActEnd').value;
   const scanName=document.getElementById('newActScanName').value.trim();
-  const rule=document.getElementById('newActRule').value.trim();
-  const matSel=document.getElementById('newActMats');
-  const matIds=matSel?Array.from(matSel.selectedOptions).map(o=>o.value).filter(Boolean):[];
   if(!name){alert('请输入活动名称');return}
   if(!sd||!ed){alert('请选择起止日期');return}
   if(ed<sd){alert('结束日期不能早于开始日期');return}
   const acts=DB.activities;
-  acts.push({id:uid(),name,startDate:sd,endDate:ed,scanName,rule,matIds});
+  acts.push({id:uid(),name,startDate:sd,endDate:ed,scanName});
   DB.activities=acts;
   document.getElementById('newActName').value='';
   document.getElementById('newActStart').value='';
   document.getElementById('newActEnd').value='';
   document.getElementById('newActScanName').value='';
-  document.getElementById('newActRule').value='';
-  if(matSel)matSel.selectedIndex=-1;
   addLog('新建活动：'+name);
   renderActEditList();refreshAll();
 }
@@ -1786,21 +1755,21 @@ function refreshBatchActSelect(){
   if(!sel)return;
   const prev=sel.value;
   const acts=DB.activities;
-  sel.innerHTML='<option value="">-- 选择活动 --</option>'+acts.map(a=>{
+  // 「＋ 新建活动…」固定在下拉第一行，选中它 = 打开活动管理弹窗建活动
+  sel.innerHTML='<option value="__NEW__">＋ 新建活动…</option><option value="">-- 选择活动 --</option>'+acts.map(a=>{
     const label=a.startDate?a.name+'（'+a.startDate+' ~ '+a.endDate+'）':a.name;
     return `<option value="${esc(a.name)}">${esc(label)}</option>`;
-  }).join('')+'<option value="__NEW__">＋ 新建活动…</option>';
-  if(prev&&[...sel.options].some(o=>o.value===prev))sel.value=prev;
+  }).join('');
+  sel.value=(prev&&[...sel.options].some(o=>o.value===prev))?(prev||''):'';
 }
 
 function batchApplyActivity(){
   const sel=document.getElementById('batchActSelect');
   const actName=sel.value;
-  // 选「＋ 新建活动…」：先去把活动建出来（建完自动选中它，再点一次应用即可）
+  // 选「＋ 新建活动…」：打开活动管理弹窗建活动（建完下拉自动选中它，再点应用即可）
   if(actName==='__NEW__'){
     sel.value='';
     openActModal();
-    alert('请在「新建活动」弹窗里填写名称和起止日期，保存后回到这里重新选择该活动，再点「应用到选中」。');
     return;
   }
   if(!actName){alert('请先选择活动');return}
@@ -2000,7 +1969,6 @@ const LABEL_DEFS=[
   ['tabContacts','「门店信息」标签页','门店信息'],
   ['btnSettings','「设置」按钮','设置'],
   ['btnExportCsv','「下载CSV」按钮','下载CSV'],
-  ['btnNewAct','「新建活动」按钮','新建活动'],
   ['btnClearOrder','「清空当前单数据」按钮','清空当前单数据'],
   ['btnMatchAct','「按商品名称匹配活动」按钮','按商品名称匹配活动'],
   ['batchActLabel','「批量设活动」标签','批量设活动：'],
@@ -2715,7 +2683,8 @@ function renderPreview(){
   renderMatOpts();
   const orphanActs=[...new Set(sfData.map(r=>r.activity).filter(Boolean))].filter(n=>!acts.some(a=>a.name===n));
   const allActs=[...acts,...orphanActs.map(n=>({name:n}))];
-  const actOpts='<option value="">-- 选择 --</option>'+allActs.map(a=>`<option value="${esc(a.name)}"${orphanActs.includes(a.name)?' style="color:#f9ab00"':''}>${esc(a.name)}${orphanActs.includes(a.name)?'（已删除）':''}</option>`).join('');
+  // 「＋ 新建活动…」固定第一行，选中它弹出活动管理弹窗；其余为已有活动（已删除的活动标黄显示）
+  const actOpts='<option value="__NEW__">＋ 新建活动…</option><option value="">-- 选择 --</option>'+allActs.map(a=>`<option value="${esc(a.name)}"${orphanActs.includes(a.name)?' style="color:#f9ab00"':''}>${esc(a.name)}${orphanActs.includes(a.name)?'（已删除）':''}</option>`).join('');
 
   const activeCols=Object.keys(pFilters);
   let shown=0;
@@ -2758,6 +2727,12 @@ document.getElementById('previewBody').addEventListener('change',function(e){
   const f=el.dataset.f;
   if(!sfData[i]||!f)return;
   let v=el.value;
+  // 行内活动下拉选「＋ 新建活动…」：弹窗建活动，本行下拉还原为原值（建完刷新后可选中新活动）
+  if(f==='activity'&&v==='__NEW__'){
+    el.value=sfData[i].activity||'';
+    openActModal();
+    return;
+  }
   if(f==='matchedStore'){
     v=v.trim();
     if(v&&!DB.contacts.some(c=>c.storeName===v)){
