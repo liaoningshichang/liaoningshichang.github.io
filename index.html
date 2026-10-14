@@ -6,6 +6,7 @@
 <title>市场物料到店管理系统</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;background:#f0f2f5;color:#333;font-size:14px}
@@ -142,13 +143,14 @@ tr:hover{background:#f8f9fc}
 .dash-chip .x{cursor:pointer;font-weight:700;padding:0 2px;color:#5f6368}
 .dash-chip .x:hover{color:#c5221f}
 .cross-table{background:#fff;border-radius:10px;padding:18px;box-shadow:0 1px 3px rgba(0,0,0,.07);overflow:auto;margin-bottom:16px}
+.tbl-img-bar{display:flex;justify-content:flex-end;margin-top:10px}
 .cross-table h4{font-size:14px;color:#333;margin-bottom:12px;font-weight:600}
 .cross-table h4 .tmark{display:inline-block;width:4px;height:11px;border-radius:2px;margin-right:4px;vertical-align:-1px}
 .cross-table table{font-size:12px}
 #crossTable table{width:max-content;min-width:100%}
 #crossTable th.x-total{background:#f1f3f4;color:#5f6368;font-weight:600}
 #crossTable td:nth-child(2){font-weight:600;color:#202124}
-.cross-table th{position:static;background:#f7f8fa;padding:7px 10px;text-align:center;font-size:12px;color:#5f6368;font-weight:600}
+.cross-table th{position:sticky;top:0;z-index:1;background:#f7f8fa;padding:7px 10px;text-align:center;font-size:12px;color:#5f6368;font-weight:600}
 .cross-table td{padding:6px 10px;text-align:center;border:1px solid #f0f0f0}
 .cross-table td:first-child{text-align:left;font-weight:500;background:none;border-left:4px solid transparent}
 .cross-table tr:hover{background:#fafbfc}
@@ -307,6 +309,10 @@ tr:hover{background:#f8f9fc}
 #contactBody td.csel.sel-b::after,#allocBody td.csel.sel-b::after{border-bottom-width:2px}
 #contactBody td.csel.sel-l::after,#allocBody td.csel.sel-l::after{border-left-width:2px}
 #contactBody td.csel.sel-r::after,#allocBody td.csel.sel-r::after{border-right-width:2px}
+/* 下拉填充把手 */
+.ffill{position:absolute;width:9px;height:9px;background:#1a73e8;border:1px solid #fff;border-radius:2px;box-shadow:0 1px 2px rgba(0,0,0,.25);cursor:crosshair;z-index:40;pointer-events:auto}
+.ffill::after{content:"";position:absolute;inset:-5px;}
+#ffGhost{position:absolute;border:2px dashed #1a73e8;background:rgba(26,115,232,.12);z-index:39;pointer-events:none;display:none;border-radius:2px}
 #contactBody td{cursor:cell;user-select:none}
 #contactBody td input{user-select:text}
 #contactWrap th[data-c]{cursor:pointer;user-select:none;position:relative;padding-right:26px}
@@ -525,8 +531,8 @@ iframe[id^="sb__open-sandbox"]{display:none!important}
     <div class="stats-grid" id="statsGrid"></div>
 
     <div class="cross-table" id="actSummary" style="margin-bottom:16px">
-      <h4 data-lk="sumTitle">市场活动汇总</h4>
       <div id="actSummaryBody"></div>
+      <div class="tbl-img-bar"><button class="btn btn-gray btn-sm" onclick="copyTableAsImage('actSummaryBody',this)">复制为图片</button></div>
     </div>
 
     <div class="dash-cols">
@@ -545,6 +551,7 @@ iframe[id^="sb__open-sandbox"]{display:none!important}
         </span>
       </h4>
       <div id="crossTableBody"></div>
+      <div class="tbl-img-bar"><button class="btn btn-gray btn-sm" onclick="copyTableAsImage('crossTableBody',this)">复制为图片</button></div>
     </div>
     </div><!-- /dash-cols -->
 
@@ -553,11 +560,13 @@ iframe[id^="sb__open-sandbox"]{display:none!important}
         <span style="float:right;font-weight:400;font-size:12px;color:#888" data-lk="matDetailHint">礼品发放数只统计实物礼品，活动物料不计入</span>
       </h4>
       <div id="matDetailBody"></div>
+      <div class="tbl-img-bar"><button class="btn btn-gray btn-sm" onclick="copyTableAsImage('matDetailBody',this)">复制为图片</button></div>
     </div>
 
     <div class="cross-table" id="actStoreTbl" style="margin-bottom:16px">
       <h4 data-lk="actStoreTitle">活动门店表</h4>
       <div id="actStoreBody"></div>
+      <div class="tbl-img-bar"><button class="btn btn-gray btn-sm" onclick="copyTableAsImage('actStoreBody',this)">复制为图片</button></div>
     </div>
   </div>
 
@@ -1378,8 +1387,9 @@ function cPaintSel(){
       if(ci===s.c2)td.classList.add('sel-r');
     });
   });
+  if(typeof ffShow==='function')ffShow('c');
 }
-function cClearSel(){cSel=null;cAnchor=null;cPaintSel()}
+function cClearSel(){cSel=null;cAnchor=null;cPaintSel();ffHide()}
 function cCellInfo(el){
   const td=el.closest?el.closest('td[data-c]'):null;
   if(!td)return null;
@@ -3467,8 +3477,8 @@ function renderDashboard(){
 
   document.getElementById('statsGrid').innerHTML=`
     <div class="stat-card"><div class="num">${actCount}</div><div class="lbl"${dashSel?' data-lk="statActRange"':''}>${esc(actLbl)}</div></div>
-    <div class="stat-card o"><div class="num">${authCount}</div><div class="lbl" data-lk="statAuth">授权活动门店</div></div>
     <div class="stat-card g"><div class="num">${mijiaCount}</div><div class="lbl" data-lk="statMijia">米家活动门店</div></div>
+    <div class="stat-card o"><div class="num">${authCount}</div><div class="lbl" data-lk="statAuth">授权活动门店</div></div>
     <div class="stat-card b"><div class="num">${giftFmt(giftTotal)}</div><div class="lbl" data-lk="statGiftTotal">礼品发放总数</div></div>`;
   applyLabels();
 
@@ -3533,7 +3543,7 @@ function renderDashboard(){
 
   let html='<table><thead><tr id="dashCrossHead"><th>小区/区域</th><th class="x-total">门店数量</th><th>礼品发放数</th>'+actNames.map(a=>`<th>${esc(a)}</th>`).join('')+'</tr></thead><tbody>';
   const areaType=area=>areaClassOf(area);
-  let colTotalGift=0;
+  let colTotalGift=0,shownAreas=0;
   for(const area of areas){
     let rowTotal=0,rowGift=0;
     const cells=[];
@@ -3544,10 +3554,11 @@ function renderDashboard(){
       rowTotal+=n;rowGift+=g;
       cells.push(`<td class="${n?'has-data':'no-data'}" title="门店 ${n} · 礼品 ${giftFmt(g)}">${n||'-'}</td>`);
     }
-    colTotalGift+=rowGift;
+    if(rowTotal<=0)continue; // 门店数量为 0 的区域不显示
+    shownAreas++;colTotalGift+=rowGift;
     html+=`<tr><td class="area-${areaType(area)}">${esc(area)}</td><td style="font-weight:600">${rowTotal}</td><td style="font-weight:600">${giftFmt(rowGift)}</td>`+cells.join('')+'</tr>';
   }
-  if(areas.length){
+  if(shownAreas){
     const footCells=actNames.map(a=>`<td style="font-weight:600">${giftFmt(giftOf(a))}</td>`).join('');
     html+=`<tr style="background:#f7f9fc;font-weight:600"><td>门店数量</td><td class="x-total"></td><td>${giftFmt(colTotalGift)}</td>${footCells}</tr>`;
   }
@@ -3612,6 +3623,131 @@ function renderDashboard(){
   wireColResize('dashCross','dashCrossHead',null);
   wireColResize('dashMat','dashMatHead',null);
   applyColwTo('dashSum');applyColwTo('dashCross');applyColwTo('dashMat');
+}
+// 复制表格为图片：html2canvas 渲染 → 写入剪贴板（失败则下载）
+function copyTableAsImage(bodyId,btn){
+  const host=document.getElementById(bodyId);
+  const tbl=host?host.querySelector('table'):null;
+  if(!tbl){alert('该表暂无数据可复制');return}
+  if(typeof html2canvas==='undefined'){alert('图片库未加载，请联网后刷新页面重试');return}
+  const old=btn?btn.textContent:'';
+  if(btn){btn.textContent='生成中…';btn.disabled=true}
+  html2canvas(tbl,{backgroundColor:'#ffffff',scale:2,useCORS:true}).then(canvas=>{
+    canvas.toBlob(blob=>{
+      if(btn){btn.textContent=old;btn.disabled=false}
+      if(!blob){alert('生成图片失败');return}
+      if(navigator.clipboard&&window.ClipboardItem){
+        navigator.clipboard.write([new ClipboardItem({'image/png':blob})]).then(()=>{
+          flashTip('表格图片已复制，可直接粘贴',2000);
+        }).catch(()=>downloadBlob(blob));
+      }else downloadBlob(blob);
+    },'image/png');
+  }).catch(()=>{if(btn){btn.textContent=old;btn.disabled=false};alert('生成图片失败')});
+  function downloadBlob(blob){
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);
+    a.download='表格_'+new Date().toISOString().slice(0,10)+'.png';
+    a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+    flashTip('已下载为图片文件',2000);
+  }
+}
+// ===== 通用下拉填充（门店信息 + 物料分配） =====
+let FF={kind:null,drag:null,handle:null,ghost:null,bound:false};
+function ffCfg(){
+  if(FF.kind==='c')return{
+    bodyId:'contactBody',sel:()=>cSelNorm(),
+    val:(r,c)=>cValAt(r,c),set:(r,c,v)=>cSetValAt(r,c,v),
+    setSel:(s)=>{cSel=s},paint:()=>cPaintSel(),
+    commit:()=>{cWriteBack();renderContacts()}
+  };
+  if(FF.kind==='a')return{
+    bodyId:'allocBody',sel:()=>aSelNorm(),
+    val:(r,c)=>aValAt(r,c),set:(r,c,v)=>aSetValAt(r,c,v),
+    setSel:(s)=>{aSel=s},paint:()=>aPaintSel(),
+    commit:()=>{aSave();aRefreshValues()}
+  };
+  return null;
+}
+function ffEnsure(){
+  if(!FF.handle){FF.handle=document.createElement('div');FF.handle.className='ffill';FF.handle.title='向下拖动填充';document.body.appendChild(FF.handle)}
+  if(!FF.ghost){FF.ghost=document.createElement('div');FF.ghost.id='ffGhost';document.body.appendChild(FF.ghost)}
+  if(!FF.bound){FF.bound=true;FF.handle.addEventListener('mousedown',ffStart)}
+}
+function ffShow(kind){
+  FF.kind=kind;ffEnsure();
+  const cfg=ffCfg();if(!cfg){ffHide();return}
+  const s=cfg.sel();if(!s){ffHide();return}
+  const last=document.querySelector('#'+cfg.bodyId+' tr[data-vr="'+s.r2+'"] td[data-c="'+s.c2+'"]');
+  if(!last){ffHide();return}
+  const r=last.getBoundingClientRect();
+  FF.handle.style.display='block';
+  FF.handle.style.left=(r.right-4)+'px';
+  FF.handle.style.top=(r.bottom-4)+'px';
+}
+function ffHide(){
+  if(FF.handle)FF.handle.style.display='none';
+  if(FF.ghost)FF.ghost.style.display='none';
+}
+function ffStart(e){
+  e.preventDefault();e.stopPropagation();
+  const cfg=ffCfg();if(!cfg)return;
+  const s=cfg.sel();if(!s)return;
+  FF.drag={s,bodyId:cfg.bodyId};
+  document.addEventListener('mousemove',ffMove);
+  document.addEventListener('mouseup',ffUp);
+  ffMove(e);
+}
+function ffRowAtY(bodyId,y){
+  const trs=document.querySelectorAll('#'+bodyId+' tr[data-vr]');
+  for(const tr of trs){const r=tr.getBoundingClientRect();if(y>=r.top&&y<r.bottom)return +tr.dataset.vr}
+  return null;
+}
+function ffMove(e){
+  const d=FF.drag;if(!d)return;
+  const row=ffRowAtY(d.bodyId,e.clientY);
+  if(row==null)return;
+  const s=d.s;
+  let t=null;
+  if(row>s.r2)t={r1:s.r2+1,r2:row,c1:s.c1,c2:s.c2};
+  else if(row<s.r1)t={r1:row,r2:s.r1-1,c1:s.c1,c2:s.c2};
+  d.target=t;
+  if(t){
+    const a=document.querySelector('#'+d.bodyId+' tr[data-vr="'+t.r1+'"] td[data-c="'+t.c1+'"]');
+    const b=document.querySelector('#'+d.bodyId+' tr[data-vr="'+t.r2+'"] td[data-c="'+t.c2+'"]');
+    if(a&&b){
+      const ra=a.getBoundingClientRect(),rb=b.getBoundingClientRect();
+      FF.ghost.style.display='block';
+      FF.ghost.style.left=ra.left+'px';FF.ghost.style.top=ra.top+'px';
+      FF.ghost.style.width=(rb.right-ra.left)+'px';FF.ghost.style.height=(rb.bottom-ra.top)+'px';
+    }
+  }else FF.ghost.style.display='none';
+}
+function ffUp(e){
+  document.removeEventListener('mousemove',ffMove);
+  document.removeEventListener('mouseup',ffUp);
+  const d=FF.drag;FF.drag=null;
+  if(FF.ghost)FF.ghost.style.display='none';
+  const cfg=ffCfg();
+  if(cfg&&d&&d.target)ffApply(cfg,d.s,d.target);
+  if(cfg&&cfg.sel())ffShow(FF.kind);else ffHide();
+}
+function ffApply(cfg,src,tgt){
+  let n=0;
+  const srcRows=src.r2-src.r1+1;
+  for(let r=tgt.r1;r<=tgt.r2;r++){
+    for(let c=src.c1;c<=src.c2;c++){
+      let v;
+      if(srcRows>1){const sr=src.r1+((r-tgt.r1)%srcRows);v=cfg.val(sr,c)}
+      else v=cfg.val(src.r1,c);
+      if(cfg.set(r,c,v))n++;
+    }
+  }
+  cfg.commit();
+  const nr=tgt.r2-tgt.r1+1;
+  cfg.setSel({r1:src.r1,r2:tgt.r2,c1:src.c1,c2:src.c2});
+  cfg.paint();
+  flashTip('✓ 已填充 '+nr+' 行 × '+(src.c2-src.c1+1)+' 列',1600);
 }
 function renderLogs(){
   const logs=DB.logs;
@@ -4470,8 +4606,9 @@ function aPaintSel(){
       if(ci===s.c2)td.classList.add('sel-r');
     });
   });
+  if(typeof ffShow==='function')ffShow('a');
 }
-function aClearSel(){aSel=null;aAnchor=null;aPaintSel()}
+function aClearSel(){aSel=null;aAnchor=null;aPaintSel();ffHide()}
 function aCellInfo(el){
   const td=el&&el.closest?el.closest('td[data-c]'):null;
   if(!td)return null;
@@ -4483,6 +4620,11 @@ function aSetValAt(r,c,v){
   const row=aList[r];const col=allocCols()[c];
   if(!row||!col||col.total)return false;
   aSet(row,col,v);return true;
+}
+function aValAt(r,c){
+  const row=aList[r];const col=allocCols()[c];
+  if(!row||!col||col.total)return '';
+  return aRaw(row,col);
 }
 function aCopy(){
   const s=aSelNorm();
