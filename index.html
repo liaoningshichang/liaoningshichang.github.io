@@ -420,6 +420,7 @@ iframe[id^="sb__open-sandbox"]{display:none!important}
       <span style="font-size:13px;color:#666" data-lk="historyLabel">历史物流单</span>
       <select id="orderSelect" class="filter-select" onchange="switchOrder(this.value)" style="max-width:300px"></select>
       <button class="btn btn-success" data-lk="btnExportCsv" onclick="exportCSV()">下载CSV</button>
+      <button class="btn btn-outline" onclick="openActEditModal()" title="查看、编辑、删除已建活动">活动记录</button>
     </div>
 
     <div class="drop-zone" id="dropZone" onclick="handleUploadClick(event)">
@@ -628,36 +629,42 @@ iframe[id^="sb__open-sandbox"]{display:none!important}
 
 </div>
 
-<!-- 活动管理弹窗 -->
+<!-- 新建活动弹窗（只管新建；历史活动的查看/编辑/删除在「活动记录」弹窗） -->
 <div class="modal-overlay" id="actModal">
-  <div class="modal">
-    <h3>活动管理</h3>
-    <div style="margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid #e0e0e0">
-      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-bottom:8px">
-        <div class="form-group" style="flex:2;min-width:160px">
-          <label>活动名称 *</label>
-          <input id="newActName" placeholder="如：双十一赠品活动">
-        </div>
-        <div class="form-group" style="min-width:130px">
-          <label>开始日期</label>
-          <input id="newActStart" type="date">
-        </div>
-        <div class="form-group" style="min-width:130px">
-          <label>结束日期</label>
-          <input id="newActEnd" type="date">
-        </div>
-        <button class="btn btn-primary" onclick="addActivity()" style="margin-bottom:1px">添加</button>
+  <div class="modal" style="max-width:440px">
+    <h3>新建活动</h3>
+    <div class="form-group">
+      <label>活动名称 *</label>
+      <input id="newActName" placeholder="如：双十一赠品活动">
+    </div>
+    <div style="display:flex;gap:10px">
+      <div class="form-group" style="flex:1">
+        <label>开始日期</label>
+        <input id="newActStart" type="date">
       </div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <div class="form-group" style="flex:1;min-width:200px">
-          <label>零售通扫码名称</label>
-          <input id="newActScanName" placeholder="如：十一刮刮乐扫码">
-        </div>
+      <div class="form-group" style="flex:1">
+        <label>结束日期</label>
+        <input id="newActEnd" type="date">
       </div>
     </div>
-    <div id="actEditList"></div>
+    <div class="form-group">
+      <label>零售通扫码名称</label>
+      <input id="newActScanName" placeholder="如：十一刮刮乐扫码">
+    </div>
     <div class="modal-actions">
-      <button class="btn btn-gray" onclick="closeModal('actModal')">关闭</button>
+      <button class="btn btn-gray" onclick="closeModal('actModal')">取消</button>
+      <button class="btn btn-primary" onclick="addActivity()">添加</button>
+    </div>
+  </div>
+</div>
+<!-- 活动记录弹窗：查看 / 编辑 / 删除已有活动 -->
+<div class="modal-overlay" id="actEditModal">
+  <div class="modal" style="width:min(560px,96vw);max-width:560px">
+    <h3>活动记录</h3>
+    <p class="hint" style="margin:-10px 0 12px">已建活动都在这里：改名、改日期、删除；改动会同步到所有下拉列表和统计页。</p>
+    <div id="actEditList" style="max-height:60vh;overflow:auto"></div>
+    <div class="modal-actions">
+      <button class="btn btn-gray" onclick="closeModal('actEditModal')">关闭</button>
     </div>
   </div>
 </div>
@@ -1144,7 +1151,8 @@ function switchTab(name){
   else if(name==='alloc')renderAlloc();
 }
 document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>switchTab(t.dataset.page)));
-function openActModal(){renderActEditList();document.getElementById('actModal').classList.add('show')}
+function openActModal(){document.getElementById('newActName').value='';document.getElementById('newActStart').value='';document.getElementById('newActEnd').value='';document.getElementById('newActScanName').value='';document.getElementById('actModal').classList.add('show')}
+function openActEditModal(){renderActEditList();document.getElementById('actEditModal').classList.add('show')}
 function closeModal(id){document.getElementById(id).classList.remove('show')}
 document.querySelectorAll('.modal-overlay').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('show')}));
 
