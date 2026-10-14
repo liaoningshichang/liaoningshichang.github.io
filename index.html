@@ -156,10 +156,12 @@ tr:hover{background:#f8f9fc}
 .cross-table .no-data{color:#ccc}
 .cross-table td.area-auth{border-left-color:#f9ab00;font-weight:600;color:#8a5a00}
 .cross-table td.area-mijia{border-left-color:#34a853;font-weight:600;color:#1e7d37}
+.cross-table td.area-auto{border-left-color:#4285f4;font-weight:600;color:#185abc}
 .cross-table td.area-other{border-left-color:#9aa0a6;color:#5f6368}
 #actStoreBody .store-tag{display:inline-block;padding:2px 9px;border-radius:11px;font-size:12px;font-weight:500;background:#f1f3f4;color:#3c4043;margin:1px 4px 1px 0;white-space:nowrap}
 #actStoreBody .store-tag.area-auth{background:#fef7e0;color:#8a5a00}
 #actStoreBody .store-tag.area-mijia{background:#e6f4ea;color:#1e7d37}
+#actStoreBody .store-tag.area-auto{background:#e8f0fe;color:#185abc}
 #actStoreBody td:first-child{font-weight:500}
 .dash-cols{display:grid;grid-template-columns:35fr 65fr;gap:16px;align-items:stretch;margin-bottom:16px}
 #matDetail table{font-size:12px;width:100%;border-collapse:separate;border-spacing:0}
@@ -529,7 +531,7 @@ iframe[id^="sb__open-sandbox"]{display:none!important}
 
     <div class="dash-cols">
     <div class="chart-box">
-      <h4><span data-lk="areaChartTitle">各小区/区域门店数</span><span class="legend"><i style="background:#f9ab00"></i>授权<i style="background:#34a853"></i>专卖<i style="background:#9aa0a6"></i>其他</span></h4>
+      <h4><span data-lk="areaChartTitle">各小区/区域门店数</span><span class="legend"><i style="background:#f9ab00"></i>授权<i style="background:#34a853"></i>专卖/米家<i style="background:#4285f4"></i>汽车<i style="background:#9aa0a6"></i>其他</span></h4>
       <canvas id="chartArea" style="max-height:350px"></canvas>
     </div>
 
@@ -538,6 +540,7 @@ iframe[id^="sb__open-sandbox"]{display:none!important}
         <span style="float:right;font-weight:400;font-size:12px;color:#888">
           <span class="tmark" style="background:#f9ab00"></span> 授权
           <span class="tmark" style="background:#34a853"></span> 专卖/米家
+          <span class="tmark" style="background:#4285f4"></span> 汽车
           <span class="tmark" style="background:#9aa0a6"></span> 其他
         </span>
       </h4>
@@ -3292,6 +3295,15 @@ function exportCSV(){
 
 // ==================== 月度活动汇总 ====================
 let chartArea=null;
+// 统一的区域着色分类：汽车专区=蓝、授权=黄、专卖/米家=绿、其他(未分配)=灰
+const AREA_COLOR={auto:'#4285f4',auth:'#f9ab00',mijia:'#34a853',other:'#9aa0a6'};
+function areaClassOf(area){
+  area=String(area||'');
+  if(area.includes('汽车'))return 'auto';
+  if(area.includes('授权'))return 'auth';
+  if(area.includes('专卖')||area.includes('米家'))return 'mijia';
+  return 'other';
+}
 let dashSel=null; // null=默认按月份；数组=只统计勾选的活动名
 // 勾选活动持久化：刷新后仍保留
 function saveDashSel(){try{if(dashSel&&dashSel.length)localStorage.setItem('lg2_dashsel',JSON.stringify(dashSel));else localStorage.removeItem('lg2_dashsel')}catch(e){}}
@@ -3481,15 +3493,15 @@ function renderDashboard(){
   let asHtml='<table><thead><tr><th style="text-align:left">活动名称</th><th>门店数</th><th style="text-align:left">参与门店</th></tr></thead><tbody>';
   for(const a of viewActs){
     const stores=actStoreList[a.name]?[...actStoreList[a.name]].sort():[];
-    const cell=stores.length?stores.map(s=>{const ar=storeAreaMap[s]||'';const cls=ar.includes('授权')?'area-auth':((ar.includes('专卖')||ar.includes('米家'))?'area-mijia':'');return `<span class="store-tag ${cls}">${esc(s)}</span>`}).join(' '):'<span style="color:#bbb">—</span>';
+    const cell=stores.length?stores.map(s=>{const ar=storeAreaMap[s]||'';const cls='area-'+areaClassOf(ar);return `<span class="store-tag ${cls}">${esc(s)}</span>`}).join(' '):'<span style="color:#bbb">—</span>';
     asHtml+=`<tr><td style="text-align:left">${esc(a.name)}</td><td><strong>${stores.length}</strong></td><td style="text-align:left;white-space:normal;line-height:1.9">${cell}</td></tr>`;
   }
   asHtml+='</tbody></table>';
   document.getElementById('actStoreBody').innerHTML=asHtml;
 
-  // 小区门店数
+  // 小区门店数：只统计当前查看范围内（勾选活动/当月）有参与的门店，随勾选联动
   const areaMap={};
-  for(const c of contacts){const a=c.area||'未分配';areaMap[a]=(areaMap[a]||0)+1}
+  for(const s of uniqStores){const a=storeAreaMap[s]||'未分配';areaMap[a]=(areaMap[a]||0)+1}
   const areaEntries=Object.entries(areaMap).sort((a,b)=>b[1]-a[1]).slice(0,15);
   const areaNames=areaEntries.map(e=>e[0]);
   const areaCounts=areaEntries.map(e=>e[1]);
@@ -3497,7 +3509,7 @@ function renderDashboard(){
   // Chart.js
   if(typeof Chart!=='undefined'){
     if(chartArea)chartArea.destroy();
-    const barColors=areaNames.map(n=>n.includes('授权')?'#f9ab00':(n.includes('专卖')?'#34a853':'#9aa0a6'));
+    const barColors=areaNames.map(n=>AREA_COLOR[areaClassOf(n)]);
     chartArea=new Chart(document.getElementById('chartArea').getContext('2d'),{
       type:'bar',
       data:{labels:areaNames,datasets:[{label:'门店数',data:areaCounts,backgroundColor:barColors,borderRadius:4}]},
@@ -3520,13 +3532,7 @@ function renderDashboard(){
   }
 
   let html='<table><thead><tr id="dashCrossHead"><th>小区/区域</th><th class="x-total">门店数量</th><th>礼品发放数</th>'+actNames.map(a=>`<th>${esc(a)}</th>`).join('')+'</tr></thead><tbody>';
-  const areaType=area=>{
-    if(area.includes('授权'))return 'auth';
-    if(area.includes('专卖')||area.includes('米家'))return 'mijia';
-    const cs=contacts.filter(c=>(c.area||'未分配')===area);
-    if(cs.length)return cs.some(c=>String(c.channel||'').includes('授权'))?'auth':'mijia';
-    return 'other';
-  };
+  const areaType=area=>areaClassOf(area);
   let colTotalGift=0;
   for(const area of areas){
     let rowTotal=0,rowGift=0;
@@ -3601,10 +3607,11 @@ function renderDashboard(){
     }
   }
   updateDashChip();
-  // 汇总页三张表每次重渲染都会重建 DOM（colgroup 也没了），必须在这里重新挂拖拽把手
+  // 汇总页三张表每次重渲染都会重建 DOM（colgroup 也没了），必须在这里重新挂拖拽把手 + 回填已存列宽
   wireColResize('dashSum','dashSumHead',null);
   wireColResize('dashCross','dashCrossHead',null);
   wireColResize('dashMat','dashMatHead',null);
+  applyColwTo('dashSum');applyColwTo('dashCross');applyColwTo('dashMat');
 }
 function renderLogs(){
   const logs=DB.logs;
