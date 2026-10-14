@@ -2874,8 +2874,21 @@ document.getElementById('previewBody').addEventListener('change',function(e){
     }
   }
   if(f==='productName'){
+    v=v.trim();
+    el.value=v;
     const tr=el.closest('tr');
     if(tr)el.style.width=Math.min(300,Math.max(110,textW(v)*7+24))+'px';
+    // 输入了台账里没有的新名称 → 问一句是否建为新物料；确认后同步物料台账、批量设物料下拉、联想列表
+    if(v&&!DB.materials.some(m=>String(m.name||'').trim()===v)){
+      if(confirm('「'+v+'」不在物料台账中，是否创建为新物料？\n（种类默认实物礼品、挂本行当前活动；省仓代码等到物料分配页补充）')){
+        DB.materials=DB.materials.concat([{id:uid(),name:v,kind:'实物礼品',activity:sfData[i].activity||'',code:'',hq:'',mkt:'',step:'',stores:''}]);
+        addLog('新建物料：'+v+'（来自物流表物料名称列）');
+        refreshBatchMatSelect();
+        renderMats();
+        renderMatOpts();
+        flashTip('✓ 物料「'+v+'」已创建',1800);
+      }
+    }
   }
   persistSf();
   if(f==='activity')renderOrderSelect();
