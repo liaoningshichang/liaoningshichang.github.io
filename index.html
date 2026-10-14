@@ -122,15 +122,15 @@ tr:hover{background:#f8f9fc}
 .chart-box h4{font-size:14px;color:#333;margin-bottom:12px;font-weight:600}
 .chart-box canvas{max-height:300px}
 .dash-anchor{position:relative}
-.dash-pop{position:absolute;right:0;top:calc(100% + 6px);z-index:70;width:268px;background:#fff;border:1px solid #e3e3e3;border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.18);padding:12px;display:none;text-align:left}
+.dash-pop{position:absolute;right:0;top:calc(100% + 6px);z-index:70;width:320px;background:#fff;border:1px solid #e3e3e3;border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.18);padding:12px;display:none;text-align:left}
 .dash-pop.show{display:block}
 .dash-pop-label{font-size:12px;color:#333;font-weight:600;margin-bottom:6px}
 .dash-pop-label2{margin-top:12px}
-.dash-act-list{max-height:230px;overflow:auto;border:1px solid #eee;border-radius:8px;padding:4px;margin:2px 0}
-.dash-act-item{display:flex;align-items:center;gap:8px;padding:6px 8px;font-size:12px;border-radius:6px;cursor:pointer}
+.dash-act-list{max-height:260px;overflow:auto;border:1px solid #eee;border-radius:8px;padding:4px;margin:2px 0}
+.dash-act-item{display:flex;align-items:center;gap:8px;padding:7px 8px;font-size:13px;border-radius:6px;cursor:pointer}
 .dash-act-item:hover{background:#f1f3f4}
-.dash-act-item input{margin:0;accent-color:#1a73e8}
-.dash-act-item .d{color:#999;font-size:11px;margin-left:auto;white-space:nowrap}
+.dash-act-item input{margin:0;accent-color:#1a73e8;flex:none}
+.dash-act-item .n{flex:1;min-width:0;white-space:normal;word-break:break-word;line-height:1.4}
 .dash-act-item.empty{color:#bbb;cursor:default;justify-content:center}
 .dash-pop-dates{display:flex;align-items:center;gap:6px}
 .dash-pop-dates .dash-date{flex:1;min-width:0;padding:6px 6px;border:1px solid #ddd;border-radius:6px;font-size:12px;outline:none;background:#fff}
@@ -417,16 +417,16 @@ iframe[id^="sb__open-sandbox"]{display:none!important}
 </div>
 
 <div class="tabs">
-  <div class="tab active" data-page="alloc" data-lk="tabAlloc">物料分配</div>
-  <div class="tab" data-page="import" data-lk="tabImport">物流管理</div>
+  <div class="tab active" data-page="import" data-lk="tabImport">物流管理</div>
   <div class="tab" data-page="dashboard" data-lk="tabDashboard">月度活动汇总</div>
   <div class="tab" data-page="contacts" data-lk="tabContacts">门店信息</div>
+  <div class="tab" data-page="alloc" data-lk="tabAlloc">物料分配</div>
 </div>
 
 <div class="content">
 
   <!-- ========== 物流管理 ========== -->
-  <div class="page" id="page-import">
+  <div class="page active" id="page-import">
     <div class="toolbar">
       <h3 style="margin-right:auto;font-size:15px" data-lk="pageTitle">物流单号上传</h3>
       <span style="font-size:13px;color:#666" data-lk="historyLabel">历史物流单</span>
@@ -503,7 +503,7 @@ iframe[id^="sb__open-sandbox"]{display:none!important}
       <h3 style="margin-right:auto;font-size:15px" data-lk="dashTitle">月度活动汇总</h3>
       <span class="dash-chip" id="dashRangeChip" style="display:none"></span>
       <div class="dash-anchor">
-        <button class="btn btn-primary" id="dashRangeBtn" data-lk="dashMonthLabel" onclick="toggleDashPop(event)" style="font-weight:600;padding:8px 16px">☑ 勾选活动查看</button>
+        <button class="btn btn-primary" id="dashRangeBtn" data-lk="dashMonthLabel" onclick="toggleDashPop(event)" style="font-weight:600;padding:8px 16px">勾选活动查看</button>
         <div class="dash-pop" id="dashPop" onclick="event.stopPropagation()">
           <div class="dash-pop-label" data-lk="dashPopLabel">勾选要查看的活动（数据只统计勾选的活动）</div>
           <div class="dash-act-list" id="dashActList"></div>
@@ -586,7 +586,7 @@ iframe[id^="sb__open-sandbox"]{display:none!important}
   </div>
 
   <!-- ========== 物料分配 ========== -->
-  <div class="page active" id="page-alloc">
+  <div class="page" id="page-alloc">
     <div class="toolbar">
       <button class="btn btn-gray" data-lk="btnAllocFill" onclick="allocBatchFill()">批量填数</button>
       <button class="btn btn-primary" data-lk="btnSysAlloc" onclick="openMatModal()">系统内分配</button>
@@ -2157,7 +2157,7 @@ const LABEL_DEFS=[
   ['chHistClose','门店信息历史记录·关闭按钮','关闭'],
   ['reportLogic','导入报告·匹配逻辑说明','匹配逻辑：地址优先 —— 收件地址与门店地址归一化后打分（完全相等=100%，包含=60%~100%，公共尾段按占比给分），≥50% 才认；几家分数接近时用手机号区分；地址、手机号都不行时再看收件人姓名（只认唯一命中的那一家，多家重名不猜）；都不行才记为未匹配（原因见下表）。'],
   ['dashTitle','汇总页标题','月度活动汇总'],
-  ['dashMonthLabel','「勾选活动查看」按钮','☑ 勾选活动查看'],
+  ['dashMonthLabel','「勾选活动查看」按钮','勾选活动查看'],
   ['dashPopLabel','勾选活动弹窗·标题','勾选要查看的活动（数据只统计勾选的活动）'],
   ['dashPopHint','勾选活动弹窗·说明','不勾选＝按当前月份默认统计；勾选后只统计所选活动的门店与礼品数据。'],
   ['dashSelAll','勾选活动弹窗·全选按钮','全选'],
@@ -3313,8 +3313,7 @@ function renderDashActList(){
   const sel=dashSel?new Set(dashSel):null;
   el.innerHTML=pool.map(a=>{
     const on=sel?sel.has(a.name):false;
-    const d=a.start?(a.end?a.start+' ~ '+a.end:a.start):'';
-    return '<label class="dash-act-item"><input type="checkbox" value="'+esc(a.name)+'"'+(on?' checked':'')+' onchange="dashActToggle(this)"><span>'+esc(a.name)+'</span>'+(d?'<span class="d">'+esc(d)+'</span>':'')+'</label>';
+    return '<label class="dash-act-item"><input type="checkbox" value="'+esc(a.name)+'"'+(on?' checked':'')+' onchange="dashActToggle(this)"><span class="n">'+esc(a.name)+'</span></label>';
   }).join('');
 }
 function dashActToggle(cb){
