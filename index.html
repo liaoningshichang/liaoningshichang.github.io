@@ -2423,8 +2423,6 @@ function parseSF(file,orderTime,note){
       renderOrderSelect();
       renderDashboard();
       addLog('导入顺丰回单 '+sfData.length+' 条'+(skippedWH?'（已过滤 '+skippedWH+' 条非'+SF_WAREHOUSE+'仓）':'')+'（'+orderLabel(ord)+'）');
-      const matNew=syncMatsFromSf();
-      if(matNew)flashTip('✓ 已同步 '+matNew+' 个新物料到「物料分配」台账（省仓代码等到台账补充）',3000);
       if(maskedN){
         const filled=sfData.filter(r=>!r.phone&&r.matchedStore&&DB.contacts.some(c=>c.storeName===r.matchedStore&&c.phone)).length;
         addLog('其中 '+maskedN+' 条手机号被打码，已按门店库补全 '+filled+' 条');
@@ -2437,22 +2435,6 @@ function parseSF(file,orderTime,note){
 }
 
 // ---------- 上传后：按物料名称设置所属活动（自动打活动标签） ----------
-// 把物流表里出现的物料同步进「物料分配」台账：台账已有的不动，新物料补进去（省仓代码等到台账补充）
-function syncMatsFromSf(){
-  const names=[],seen={};
-  for(const r of sfData){
-    const n=String(r.productName||'').trim();
-    if(n&&!seen[n]){seen[n]=1;names.push(n)}
-  }
-  if(!names.length)return 0;
-  const have={};DB.materials.forEach(m=>{have[String(m.name||'').trim()]=1});
-  const add=names.filter(n=>!have[n]);
-  if(!add.length)return 0;
-  DB.materials=DB.materials.concat(add.map(n=>({id:uid(),name:n,kind:'实物礼品',activity:'',code:'',hq:'',mkt:'',step:'',stores:''})));
-  addLog('同步新物料到台账 '+add.length+' 个：'+add.slice(0,6).join('、')+(add.length>6?' 等':''));
-  renderMats();renderMatOpts();
-  return add.length;
-}
 let matActRows=[];
 function matActDefaultDates(){
   const ym=(sfYM||currentYM()||'').slice(0,7);
