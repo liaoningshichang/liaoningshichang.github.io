@@ -420,7 +420,7 @@ iframe[id^="sb__open-sandbox"]{display:none!important}
       <span style="font-size:13px;color:#666" data-lk="historyLabel">历史物流单</span>
       <select id="orderSelect" class="filter-select" onchange="switchOrder(this.value)" style="max-width:300px"></select>
       <button class="btn btn-success" data-lk="btnExportCsv" onclick="exportCSV()">下载CSV</button>
-      <button class="btn btn-outline" onclick="openActEditModal()" title="查看、编辑、删除已建活动">活动记录</button>
+      <button class="btn btn-outline" data-lk="btnActRecords" onclick="openActEditModal()" title="查看、编辑、删除已建活动">活动记录</button>
     </div>
 
     <div class="drop-zone" id="dropZone" onclick="handleUploadClick(event)">
@@ -437,11 +437,11 @@ iframe[id^="sb__open-sandbox"]{display:none!important}
         <label for="checkAll" style="cursor:pointer">全选</label>
         <span style="color:#ddd">|</span>
         <label data-lk="batchActLabel">批量设活动：</label>
-        <select class="filter-select" id="batchActSelect"></select>
+        <select class="filter-select" id="batchActSelect" onchange="batchActSelChange(this)"></select>
         <button class="btn btn-primary btn-sm" data-lk="btnApplySel" onclick="batchApplyActivity()">应用到选中</button>
         <span style="color:#ddd">|</span>
         <label data-lk="batchMatLabel">批量设物料：</label>
-        <select class="filter-select" id="batchMatSelect"></select>
+        <select class="filter-select" id="batchMatSelect" onchange="batchMatSelChange(this)"></select>
         <button class="btn btn-primary btn-sm" data-lk="btnApplyMat" onclick="batchApplyMaterial()">应用到选中</button>
         <span id="selCount" style="font-size:12px;color:#1a73e8"></span>
       </div>
@@ -665,6 +665,48 @@ iframe[id^="sb__open-sandbox"]{display:none!important}
     <div id="actEditList" style="max-height:60vh;overflow:auto"></div>
     <div class="modal-actions">
       <button class="btn btn-gray" onclick="closeModal('actEditModal')">关闭</button>
+    </div>
+  </div>
+</div>
+<!-- 轻量新建物料弹窗（物流页用；完整字段到物料分配页编辑） -->
+<div class="modal-overlay" id="matQuickModal">
+  <div class="modal" style="max-width:440px">
+    <h3>新建物料</h3>
+    <div class="form-group">
+      <label>物料名称 *</label>
+      <input id="mqName" placeholder="如：品茗杯 / 刮刮乐背板">
+    </div>
+    <div class="form-group">
+      <label>种类</label>
+      <div style="display:flex;gap:16px;align-items:center;font-size:13px;padding-top:4px">
+        <label style="display:flex;gap:5px;align-items:center;cursor:pointer"><input type="radio" name="mqKind" value="实物礼品" checked> 实物礼品</label>
+        <label style="display:flex;gap:5px;align-items:center;cursor:pointer"><input type="radio" name="mqKind" value="活动物料"> 活动物料</label>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>所属活动</label>
+      <select id="mqAct" onchange="mqActNewToggle()"></select>
+      <div id="mqActNewBox" style="display:none;border:1px dashed #c5dafc;background:#f8fbff;border-radius:8px;padding:10px;margin-top:6px">
+        <div class="form-group" style="margin-bottom:8px">
+          <label>新活动名称 *</label>
+          <input id="mqActNewName" placeholder="如：双十一商场中庭家电快闪店">
+        </div>
+        <div style="display:flex;gap:8px">
+          <div class="form-group" style="flex:1;margin-bottom:0">
+            <label>开始日期</label>
+            <input type="date" id="mqActNewStart">
+          </div>
+          <div class="form-group" style="flex:1;margin-bottom:0">
+            <label>结束日期</label>
+            <input type="date" id="mqActNewEnd">
+          </div>
+        </div>
+      </div>
+    </div>
+    <p style="font-size:12px;color:#999;margin:2px 0 0">省仓代码、发货数、参加门店数等完整字段，建好后到「物料分配」页的物料台账里补充。</p>
+    <div class="modal-actions">
+      <button class="btn btn-gray" onclick="closeModal('matQuickModal')">取消</button>
+      <button class="btn btn-primary" onclick="saveMatQuick()">创建</button>
     </div>
   </div>
 </div>
@@ -1763,23 +1805,21 @@ function refreshBatchActSelect(){
   if(!sel)return;
   const prev=sel.value;
   const acts=DB.activities;
-  // 「＋ 新建活动…」固定在下拉第一行，选中它 = 打开活动管理弹窗建活动
+  // 「＋ 新建活动…」固定在下拉第一行，选中它 = 打开新建活动弹窗
   sel.innerHTML='<option value="__NEW__">＋ 新建活动…</option><option value="">-- 选择活动 --</option>'+acts.map(a=>{
     const label=a.startDate?a.name+'（'+a.startDate+' ~ '+a.endDate+'）':a.name;
     return `<option value="${esc(a.name)}">${esc(label)}</option>`;
   }).join('');
   sel.value=(prev&&[...sel.options].some(o=>o.value===prev))?(prev||''):'';
 }
+// 下拉里选「＋ 新建活动…」→ 立刻弹窗（不用再点应用）；弹窗打开后下拉还原
+function batchActSelChange(sel){
+  if(sel.value==='__NEW__'){sel.value='';openActModal()}
+}
 
 function batchApplyActivity(){
   const sel=document.getElementById('batchActSelect');
   const actName=sel.value;
-  // 选「＋ 新建活动…」：打开活动管理弹窗建活动（建完下拉自动选中它，再点应用即可）
-  if(actName==='__NEW__'){
-    sel.value='';
-    openActModal();
-    return;
-  }
   if(!actName){alert('请先选择活动');return}
   const checked=[...document.querySelectorAll('.p-cb:checked')];
   if(!checked.length){alert('请先勾选要应用的行');return}
@@ -1810,8 +1850,70 @@ function refreshBatchMatSelect(){
   const sel=document.getElementById('batchMatSelect');
   if(!sel)return;
   const prev=sel.value;
-  sel.innerHTML='<option value="">-- 选择物料 --</option>'+matNamePool().map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('');
-  if(prev&&[...sel.options].some(o=>o.value===prev))sel.value=prev;
+  sel.innerHTML='<option value="__NEW__">＋ 新建物料…</option><option value="">-- 选择物料 --</option>'+matNamePool().map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('');
+  sel.value=(prev&&[...sel.options].some(o=>o.value===prev))?(prev||''):'';
+}
+// 下拉里选「＋ 新建物料…」→ 弹轻量新建窗（只填名称/种类/所属活动，够物流页用；
+// 省仓代码、发货数、门店数等到物料分配页的物料台账里再补全）
+function batchMatSelChange(sel){
+  if(sel.value==='__NEW__'){sel.value='';openMatQuickModal()}
+}
+function openMatQuickModal(){
+  document.getElementById('mqName').value='';
+  document.querySelectorAll('input[name=mqKind]').forEach(r=>{r.checked=(r.value==='实物礼品')});
+  const actSel=document.getElementById('mqAct');
+  if(actSel){
+    actSel.innerHTML='<option value="">（不关联活动）</option>'+
+      DB.activities.map(a=>`<option value="${esc(a.name)}">${esc(a.name)}</option>`).join('')+
+      '<option value="__NEW__">＋ 新建活动…</option>';
+    actSel.value='';
+    const nb=document.getElementById('mqActNewBox');
+    if(nb)nb.style.display='none';
+  }
+  document.getElementById('mqActNewName').value='';
+  document.getElementById('mqActNewStart').value='';
+  document.getElementById('mqActNewEnd').value='';
+  document.getElementById('matQuickModal').classList.add('show');
+  setTimeout(()=>{const el=document.getElementById('mqName');if(el)el.focus()},60);
+}
+function mqActNewToggle(){
+  const sel=document.getElementById('mqAct');
+  const box=document.getElementById('mqActNewBox');
+  if(!sel||!box)return;
+  const on=sel.value==='__NEW__';
+  box.style.display=on?'block':'none';
+  if(on){const ni=document.getElementById('mqActNewName');if(ni)setTimeout(()=>ni.focus(),50)}
+}
+function saveMatQuick(){
+  const name=document.getElementById('mqName').value.trim();
+  if(!name){alert('请输入物料名称');return}
+  if(DB.materials.some(m=>String(m.name||'').trim()===name)){alert('已存在同名物料「'+name+'」，可在物料分配页编辑');return}
+  const kindEl=document.querySelector('input[name=mqKind]:checked');
+  const kind=kindEl?kindEl.value:'实物礼品';
+  const actSel=document.getElementById('mqAct');
+  let activity=actSel?actSel.value:'';
+  if(activity==='__NEW__'){
+    const nm=document.getElementById('mqActNewName').value.trim();
+    const sd=document.getElementById('mqActNewStart').value;
+    const ed=document.getElementById('mqActNewEnd').value;
+    if(!nm){alert('请输入新活动名称');return}
+    if(!sd||!ed){alert('请把新活动的起止日期填好');return}
+    if(ed<sd){alert('结束日期不能早于开始日期');return}
+    if(!DB.activities.some(a=>a.name===nm)){
+      DB.activities=DB.activities.concat([{id:uid(),name:nm,startDate:sd,endDate:ed}]);
+      addLog('新建活动：'+nm);
+    }
+    activity=nm;
+  }
+  DB.materials=DB.materials.concat([{id:uid(),name,kind,activity,code:'',hq:'',mkt:'',step:'',stores:''}]);
+  addLog('新建物料：'+name+'（'+kind+(activity?' · '+activity:'')+'）');
+  closeModal('matQuickModal');
+  refreshBatchMatSelect();
+  const sel=document.getElementById('batchMatSelect');
+  if(sel)sel.value=name;
+  renderMats();
+  refreshBatchActSelect();
+  flashTip('✓ 物料「'+name+'」已创建，点「应用到选中」即可用',2200);
 }
 function batchApplyMaterial(){
   const v=document.getElementById('batchMatSelect').value;
@@ -2018,6 +2120,7 @@ const LABEL_DEFS=[
   ['btnAddRow','「新增行」按钮','+ 新增行'],
   ['btnExportContacts','门店页「导出」按钮','导出'],
   ['btnImportConfirm','门店页「门店信息比对更新」按钮','门店信息比对更新'],
+  ['btnActRecords','物流页「活动记录」按钮','活动记录'],
   ['contactHint','门店页编辑提示','点击单元格编辑，拖动框选后 Ctrl+C / Ctrl+V 复制粘贴'],
   ['tabAlloc','「物料分配」标签页','物料分配'],
   ['btnAllocFill','物料页「批量填数」按钮','批量填数'],
