@@ -157,6 +157,10 @@ tr:hover{background:#f8f9fc}
 .cross-table td.area-auth{border-left-color:#f9ab00;font-weight:600;color:#8a5a00}
 .cross-table td.area-mijia{border-left-color:#34a853;font-weight:600;color:#1e7d37}
 .cross-table td.area-other{border-left-color:#9aa0a6;color:#5f6368}
+#actStoreBody .store-tag{display:inline-block;padding:2px 9px;border-radius:11px;font-size:12px;font-weight:500;background:#f1f3f4;color:#3c4043;margin:1px 4px 1px 0;white-space:nowrap}
+#actStoreBody .store-tag.area-auth{background:#fef7e0;color:#8a5a00}
+#actStoreBody .store-tag.area-mijia{background:#e6f4ea;color:#1e7d37}
+#actStoreBody td:first-child{font-weight:500}
 .dash-cols{display:grid;grid-template-columns:35fr 65fr;gap:16px;align-items:stretch;margin-bottom:16px}
 #matDetail table{font-size:12px;width:100%;border-collapse:separate;border-spacing:0}
 #matDetail th{background:#f7f8fa;padding:8px 10px;text-align:center;font-size:12px;color:#5f6368;font-weight:600;border-bottom:2px solid #e3e6ea;position:sticky;top:0;z-index:2}
@@ -521,6 +525,11 @@ iframe[id^="sb__open-sandbox"]{display:none!important}
     <div class="cross-table" id="actSummary" style="margin-bottom:16px">
       <h4 data-lk="sumTitle">市场活动汇总</h4>
       <div id="actSummaryBody"></div>
+    </div>
+
+    <div class="cross-table" id="actStoreTbl" style="margin-bottom:16px">
+      <h4 data-lk="actStoreTitle">活动门店表</h4>
+      <div id="actStoreBody"></div>
     </div>
 
     <div class="dash-cols">
@@ -1795,18 +1804,34 @@ function renderContactHistCells(){
 }
 
 // ==================== 活动管理 ====================
+// 更新活动某字段。DB.activities 是 getter（每次返回新解析的数组），必须先取出→改→整体回写，否则改动会丢失。
+function updateActivity(i,field,value){
+  const acts=DB.activities;
+  if(!acts[i])return;
+  acts[i][field]=value;
+  DB.activities=acts;
+  refreshAll();
+}
+function deleteActivity(i){
+  if(!confirm('删除该活动？'))return;
+  const acts=DB.activities;
+  acts.splice(i,1);
+  DB.activities=acts;
+  renderActEditList();
+  refreshAll();
+}
 function renderActEditList(){
   const acts=DB.activities;
   document.getElementById('actEditList').innerHTML=acts.map((a,i)=>`
     <div style="padding:8px 0;border-bottom:1px solid #f0f0f0">
       <div class="act-edit-row" style="border:none;padding-bottom:4px">
-        <input type="text" value="${esc(a.name)}" onchange="DB.activities[${i}].name=this.value;DB.activities=DB.activities;refreshAll()" placeholder="活动名称" title="活动名称">
-        <input type="date" value="${a.startDate||''}" onchange="DB.activities[${i}].startDate=this.value;DB.activities=DB.activities" title="开始日期">
-        <input type="date" value="${a.endDate||''}" onchange="DB.activities[${i}].endDate=this.value;DB.activities=DB.activities" title="结束日期">
-        <button class="btn btn-sm btn-danger" onclick="if(confirm('删除该活动？')){DB.activities=DB.activities.filter((_,j)=>j!==${i});DB.activities=DB.activities;renderActEditList();refreshAll()}">删</button>
+        <input type="text" value="${esc(a.name)}" onchange="updateActivity(${i},'name',this.value)" placeholder="活动名称" title="活动名称">
+        <input type="date" value="${a.startDate||''}" onchange="updateActivity(${i},'startDate',this.value)" title="开始日期">
+        <input type="date" value="${a.endDate||''}" onchange="updateActivity(${i},'endDate',this.value)" title="结束日期">
+        <button class="btn btn-sm btn-danger" onclick="deleteActivity(${i})">删</button>
       </div>
       <div class="act-edit-row" style="border:none;padding-top:0">
-        <input type="text" value="${esc(a.scanName||'')}" onchange="DB.activities[${i}].scanName=this.value;DB.activities=DB.activities" placeholder="零售通扫码名称" style="font-size:12px">
+        <input type="text" value="${esc(a.scanName||'')}" onchange="updateActivity(${i},'scanName',this.value)" placeholder="零售通扫码名称" style="font-size:12px">
       </div>
     </div>
   `).join('')||'<div style="color:#aaa;font-size:13px;padding:10px 0">暂无活动</div>';
@@ -2164,6 +2189,7 @@ const LABEL_DEFS=[
   ['dashClear','勾选活动弹窗·清空按钮','清空'],
   ['dashDone','勾选活动弹窗·完成按钮','完成'],
   ['sumTitle','「市场活动汇总」标题','市场活动汇总'],
+  ['actStoreTitle','「活动门店表」标题','活动门店表'],
   ['areaChartTitle','门店数图标题','各小区/区域门店数'],
   ['crossTitle','区域计数表标题','区域活动计数'],
   ['statAuth','「授权活动门店」指标名','授权活动门店'],
@@ -3267,6 +3293,9 @@ function exportCSV(){
 // ==================== 月度活动汇总 ====================
 let chartArea=null;
 let dashSel=null; // null=默认按月份；数组=只统计勾选的活动名
+// 勾选活动持久化：刷新后仍保留
+function saveDashSel(){try{if(dashSel&&dashSel.length)localStorage.setItem('lg2_dashsel',JSON.stringify(dashSel));else localStorage.removeItem('lg2_dashsel')}catch(e){}}
+function loadDashSel(){try{const v=JSON.parse(localStorage.getItem('lg2_dashsel')||'null');dashSel=(Array.isArray(v)&&v.length)?v:null}catch(e){dashSel=null}}
 
 function dashRowsAll(){
   const out=[];
@@ -3304,11 +3333,13 @@ function dashActToggle(cb){
   if(cb.checked){if(sel.indexOf(name)<0)sel.push(name)}
   else sel=sel.filter(n=>n!==name);
   dashSel=sel.length?sel:null;
+  saveDashSel();
   renderDashboard();
 }
 function dashSelAll(){
   const pool=dashActPool().map(a=>a.name);
   dashSel=pool.length?pool.slice():null;
+  saveDashSel();
   renderDashActList();
   renderDashboard();
 }
@@ -3323,6 +3354,7 @@ function toggleDashPop(e){
 function closeDashPop(){const p=document.getElementById('dashPop');if(p)p.classList.remove('show')}
 function resetDashRange(){
   dashSel=null;
+  saveDashSel();
   renderDashboard();
   closeDashPop();
 }
@@ -3438,6 +3470,22 @@ function renderDashboard(){
   }
   sumHtml+='</tbody></table>';
   document.getElementById('actSummaryBody').innerHTML=sumHtml;
+
+  // 活动门店表：列出每个活动都有哪些门店
+  const actStoreList={};
+  for(const r of withAct){
+    if(!r.activity||!r.matchedStore)continue;
+    if(!actStoreList[r.activity])actStoreList[r.activity]=new Set();
+    actStoreList[r.activity].add(r.matchedStore);
+  }
+  let asHtml='<table><thead><tr><th style="text-align:left">活动名称</th><th>门店数</th><th style="text-align:left">参与门店</th></tr></thead><tbody>';
+  for(const a of viewActs){
+    const stores=actStoreList[a.name]?[...actStoreList[a.name]].sort():[];
+    const cell=stores.length?stores.map(s=>{const ar=storeAreaMap[s]||'';const cls=ar.includes('授权')?'area-auth':((ar.includes('专卖')||ar.includes('米家'))?'area-mijia':'');return `<span class="store-tag ${cls}">${esc(s)}</span>`}).join(' '):'<span style="color:#bbb">—</span>';
+    asHtml+=`<tr><td style="text-align:left">${esc(a.name)}</td><td><strong>${stores.length}</strong></td><td style="text-align:left;white-space:normal;line-height:1.9">${cell}</td></tr>`;
+  }
+  asHtml+='</tbody></table>';
+  document.getElementById('actStoreBody').innerHTML=asHtml;
 
   // 小区门店数
   const areaMap={};
@@ -4768,6 +4816,7 @@ DB.activities=DB.activities;
 migrateArchiveToOrders();
 ensureOrderCodes();
 try{currentOrderId=localStorage.getItem('lg2_current_order')||''}catch(e){}
+loadDashSel();
 function restoreSfView(){
   const orders=DB.orders;
   let ord=currentOrderId?orders.find(o=>o.id===currentOrderId):null;
