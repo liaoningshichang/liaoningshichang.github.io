@@ -126,6 +126,12 @@ tr:hover{background:#f8f9fc}
 .dash-pop.show{display:block}
 .dash-pop-label{font-size:12px;color:#333;font-weight:600;margin-bottom:6px}
 .dash-pop-label2{margin-top:12px}
+.dash-act-list{max-height:230px;overflow:auto;border:1px solid #eee;border-radius:8px;padding:4px;margin:2px 0}
+.dash-act-item{display:flex;align-items:center;gap:8px;padding:6px 8px;font-size:12px;border-radius:6px;cursor:pointer}
+.dash-act-item:hover{background:#f1f3f4}
+.dash-act-item input{margin:0;accent-color:#1a73e8}
+.dash-act-item .d{color:#999;font-size:11px;margin-left:auto;white-space:nowrap}
+.dash-act-item.empty{color:#bbb;cursor:default;justify-content:center}
 .dash-pop-dates{display:flex;align-items:center;gap:6px}
 .dash-pop-dates .dash-date{flex:1;min-width:0;padding:6px 6px;border:1px solid #ddd;border-radius:6px;font-size:12px;outline:none;background:#fff}
 .dash-pop-dates .dash-date:focus{border-color:#1a73e8}
@@ -187,6 +193,12 @@ tr:hover{background:#f8f9fc}
 .mat-act-row.head{font-size:12px;color:#666;font-weight:600;position:sticky;top:0;background:#fff;z-index:1;border-bottom:1px solid #e8eaed}
 .mat-act-row input{box-sizing:border-box;width:100%;font-size:12px;padding:6px 7px;border:1px solid #dadce0;border-radius:6px;background:#fff;font-family:inherit}
 .mat-act-row input:focus{border-color:#1a73e8;outline:none;box-shadow:0 0 0 2px rgba(26,115,232,.15)}
+.mat-act-batch{display:flex;align-items:center;gap:6px;flex-wrap:wrap;background:#e8f0fe;border:1px solid #d2e3fc;border-radius:8px;padding:8px 10px;margin-bottom:10px;font-size:12px}
+.mat-act-batch .lab{font-weight:600;color:#1a73e8;white-space:nowrap}
+.mat-act-batch input[type=text]{flex:1;min-width:150px;padding:6px 7px;border:1px solid #dadce0;border-radius:6px;font-size:12px;font-family:inherit}
+.mat-act-batch input[type=date]{padding:5px 6px;border:1px solid #dadce0;border-radius:6px;font-size:12px;font-family:inherit}
+.mat-act-batch .sep{color:#999}
+.mat-act-batch input:focus{border-color:#1a73e8;outline:none}
 .ma-name{font-size:12.5px;font-weight:500;word-break:break-all}
 .ma-name .new{display:inline-block;margin-left:5px;font-size:10.5px;color:#188038;background:#e6f4ea;border-radius:8px;padding:1px 6px;white-space:nowrap}
 /* 门店信息历史记录 / 门店信息更新检测 */
@@ -487,22 +499,19 @@ iframe[id^="sb__open-sandbox"]{display:none!important}
 
   <!-- ========== 月度活动汇总 ========== -->
   <div class="page" id="page-dashboard">
-    <div class="toolbar">
+      <div class="toolbar">
       <h3 style="margin-right:auto;font-size:15px" data-lk="dashTitle">月度活动汇总</h3>
       <span class="dash-chip" id="dashRangeChip" style="display:none"></span>
       <div class="dash-anchor">
-        <button class="btn btn-gray btn-sm" id="dashRangeBtn" data-lk="dashMonthLabel" onclick="toggleDashPop(event)">按活动时间查看</button>
+        <button class="btn btn-primary" id="dashRangeBtn" data-lk="dashMonthLabel" onclick="toggleDashPop(event)" style="font-weight:600;padding:8px 16px">☑ 勾选活动查看</button>
         <div class="dash-pop" id="dashPop" onclick="event.stopPropagation()">
-          <div class="dash-pop-label">按活动时间查看</div>
-          <div class="dash-pop-dates">
-            <input type="date" id="dashRangeS" class="dash-date" onchange="applyDashRange()">
-            <span class="dash-pop-sep">至</span>
-            <input type="date" id="dashRangeE" class="dash-date" onchange="applyDashRange()">
-          </div>
-          <div class="dash-pop-hint">起止日期都选好后，自动拉取该时间段内活动的门店数量；活动与所选时间有交集即计入。</div>
+          <div class="dash-pop-label" data-lk="dashPopLabel">勾选要查看的活动（数据只统计勾选的活动）</div>
+          <div class="dash-act-list" id="dashActList"></div>
+          <div class="dash-pop-hint" data-lk="dashPopHint">不勾选＝按当前月份默认统计；勾选后只统计所选活动的门店与礼品数据。</div>
           <div class="dash-pop-actions">
-            <button class="btn btn-gray btn-sm" onclick="resetDashRange()" title="退出按活动时间查看，回到默认月份">恢复默认</button>
-            <button class="btn btn-primary btn-sm" onclick="closeDashPop()">完成</button>
+            <button class="btn btn-gray btn-sm" onclick="dashSelAll()" data-lk="dashSelAll">全选</button>
+            <button class="btn btn-gray btn-sm" onclick="resetDashRange()" data-lk="dashClear">清空</button>
+            <button class="btn btn-primary btn-sm" onclick="closeDashPop()" data-lk="dashDone">完成</button>
           </div>
         </div>
       </div>
@@ -731,6 +740,14 @@ iframe[id^="sb__open-sandbox"]{display:none!important}
   <div class="modal" style="width:min(680px,96vw);max-width:680px">
     <h3 data-lk="matActTitle">给每个物料设置所属活动</h3>
     <p class="hint" style="margin-bottom:12px" data-lk="matActHint">上传的表格里有下面这些物料名称。为每个物料选择或新建活动（新活动要填起止日期），导入后会自动给对应行打上活动标签，不用再逐行手选。</p>
+    <div class="mat-act-batch">
+      <span class="lab" data-lk="maBatchLab">统一设置：</span>
+      <input type="text" id="maBatchAct" placeholder="选择已有活动或输入新名称" autocomplete="off" list="matActOpts" onchange="matActActPicked(-1,this.value,'batch')">
+      <input type="date" id="maBatchStart" title="开始日期">
+      <span class="sep">至</span>
+      <input type="date" id="maBatchEnd" title="结束日期">
+      <button class="btn btn-primary btn-sm" onclick="matActBatchFill()" data-lk="maBatchBtn">填入全部</button>
+    </div>
     <div class="mat-act-list" id="matActList"></div>
     <datalist id="matActOpts"></datalist>
     <div class="modal-actions">
@@ -2018,7 +2035,7 @@ function ensureOrderCodes(){
 }
 function createOrder(orderTime,note){
   const ym=(orderTime||'').slice(0,7)||currentYM();
-  const o={id:uid(),name:'',code:genOrderCode(orderCodeFromTime(orderTime),DB.orders),ym:ym,createdAt:new Date().toISOString(),orderTime:orderTime||'',rows:[]};
+  const o={id:uid(),name:'',note:String(note||''),code:genOrderCode(orderCodeFromTime(orderTime),DB.orders),ym:ym,createdAt:new Date().toISOString(),orderTime:orderTime||'',rows:[]};
   o.name=note?orderNameOf(orderTime,note):o.code;
   const orders=DB.orders;orders.push(o);DB.orders=orders;
   currentOrderId=o.id;saveCurrentOrderId();
@@ -2047,7 +2064,7 @@ function resolveOrderForUpload(orderTime,note){
       t.orderTime=orderTime||t.orderTime||'';
       t.code=genOrderCode(orderCodeFromTime(t.orderTime),orders.filter(x=>x.id!==t.id));
       t.ym=(t.orderTime||'').slice(0,7)||t.ym;
-      if(note)t.name=orderNameOf(t.orderTime,note);
+      if(note){t.name=orderNameOf(t.orderTime,note);t.note=String(note)}
       else if(!t.name||t.name===oldCode)t.name=t.code;
       DB.orders=orders;
       ord=t;
@@ -2126,6 +2143,8 @@ const LABEL_DEFS=[
   ['matActHint','按物料设置活动·弹窗说明','上传的表格里有下面这些物料名称。为每个物料选择或新建活动（新活动要填起止日期），导入后会自动给对应行打上活动标签，不用再逐行手选。'],
   ['matActApplyBtn','按物料设置活动·应用按钮','应用活动标签'],
   ['matActSkipBtn','按物料设置活动·跳过按钮','暂不设置'],
+  ['maBatchLab','按物料设置活动·统一设置标签','统一设置：'],
+  ['maBatchBtn','按物料设置活动·填入全部按钮','填入全部'],
   ['btnViewHistory','门店信息·历史记录按钮','历史记录'],
   ['chRepTitle','门店信息更新检测·结果标题','门店信息更新检测结果'],
   ['chRepClose','门店信息更新检测·关闭按钮','关闭'],
@@ -2138,13 +2157,18 @@ const LABEL_DEFS=[
   ['chHistClose','门店信息历史记录·关闭按钮','关闭'],
   ['reportLogic','导入报告·匹配逻辑说明','匹配逻辑：地址优先 —— 收件地址与门店地址归一化后打分（完全相等=100%，包含=60%~100%，公共尾段按占比给分），≥50% 才认；几家分数接近时用手机号区分；地址、手机号都不行时再看收件人姓名（只认唯一命中的那一家，多家重名不猜）；都不行才记为未匹配（原因见下表）。'],
   ['dashTitle','汇总页标题','月度活动汇总'],
-  ['dashMonthLabel','「按活动时间查看」按钮','按活动时间查看'],
+  ['dashMonthLabel','「勾选活动查看」按钮','☑ 勾选活动查看'],
+  ['dashPopLabel','勾选活动弹窗·标题','勾选要查看的活动（数据只统计勾选的活动）'],
+  ['dashPopHint','勾选活动弹窗·说明','不勾选＝按当前月份默认统计；勾选后只统计所选活动的门店与礼品数据。'],
+  ['dashSelAll','勾选活动弹窗·全选按钮','全选'],
+  ['dashClear','勾选活动弹窗·清空按钮','清空'],
+  ['dashDone','勾选活动弹窗·完成按钮','完成'],
   ['sumTitle','「市场活动汇总」标题','市场活动汇总'],
   ['areaChartTitle','门店数图标题','各小区/区域门店数'],
   ['crossTitle','区域计数表标题','区域活动计数'],
   ['statAuth','「授权活动门店」指标名','授权活动门店'],
   ['statMijia','「米家活动门店」指标名','米家活动门店'],
-  ['statActRange','「区间活动场次」指标名','区间活动场次'],
+  ['statActRange','「勾选活动场次」指标名','勾选活动场次'],
   ['statGiftTotal','「礼品发放总数」指标名','礼品发放总数'],
   ['matDetailTitle','「物料明细」表标题','物料明细'],
   ['matDetailHint','「物料明细」说明','礼品发放数只统计实物礼品，活动物料不计入'],
@@ -2399,6 +2423,8 @@ function parseSF(file,orderTime,note){
       renderOrderSelect();
       renderDashboard();
       addLog('导入顺丰回单 '+sfData.length+' 条'+(skippedWH?'（已过滤 '+skippedWH+' 条非'+SF_WAREHOUSE+'仓）':'')+'（'+orderLabel(ord)+'）');
+      const matNew=syncMatsFromSf();
+      if(matNew)flashTip('✓ 已同步 '+matNew+' 个新物料到「物料分配」台账（省仓代码等到台账补充）',3000);
       if(maskedN){
         const filled=sfData.filter(r=>!r.phone&&r.matchedStore&&DB.contacts.some(c=>c.storeName===r.matchedStore&&c.phone)).length;
         addLog('其中 '+maskedN+' 条手机号被打码，已按门店库补全 '+filled+' 条');
@@ -2411,6 +2437,22 @@ function parseSF(file,orderTime,note){
 }
 
 // ---------- 上传后：按物料名称设置所属活动（自动打活动标签） ----------
+// 把物流表里出现的物料同步进「物料分配」台账：台账已有的不动，新物料补进去（省仓代码等到台账补充）
+function syncMatsFromSf(){
+  const names=[],seen={};
+  for(const r of sfData){
+    const n=String(r.productName||'').trim();
+    if(n&&!seen[n]){seen[n]=1;names.push(n)}
+  }
+  if(!names.length)return 0;
+  const have={};DB.materials.forEach(m=>{have[String(m.name||'').trim()]=1});
+  const add=names.filter(n=>!have[n]);
+  if(!add.length)return 0;
+  DB.materials=DB.materials.concat(add.map(n=>({id:uid(),name:n,kind:'实物礼品',activity:'',code:'',hq:'',mkt:'',step:'',stores:''})));
+  addLog('同步新物料到台账 '+add.length+' 个：'+add.slice(0,6).join('、')+(add.length>6?' 等':''));
+  renderMats();renderMatOpts();
+  return add.length;
+}
 let matActRows=[];
 function matActDefaultDates(){
   const ym=(sfYM||currentYM()||'').slice(0,7);
@@ -2433,8 +2475,47 @@ function openMatActModal(){
     return {name:n,act:hit?n:'',start:d.start,end:d.end,existing:hit};
   });
   renderMatActList();
+  // 顶部「统一设置」条：默认把第一行的活动/日期填进去，方便一键填全部
+  const ba=document.getElementById('maBatchAct'),bs=document.getElementById('maBatchStart'),be=document.getElementById('maBatchEnd');
+  const first=matActRows.find(x=>String(x.act||'').trim())||matActRows[0];
+  if(ba)ba.value=first?first.act:'';
+  if(bs)bs.value=first?first.start:d.start;
+  if(be)be.value=first?first.end:d.end;
   document.getElementById('matActModal').classList.add('show');
   return true;
+}
+function matActBatchFill(){
+  const act=String((document.getElementById('maBatchAct')||{}).value||'').trim();
+  if(!act){flashTip('请先在「统一设置」里填活动名称',1800);return}
+  const s=String((document.getElementById('maBatchStart')||{}).value||'');
+  const e=String((document.getElementById('maBatchEnd')||{}).value||'');
+  const exists=DB.activities.some(a=>a.name===act);
+  if(!exists&&(!s||!e)){flashTip('「'+act+'」是新活动，开始/结束日期要填好',2200);return}
+  if(s&&e&&s>e){flashTip('开始日期不能晚于结束日期',1800);return}
+  matActRows.forEach(x=>{x.act=act;if(s)x.start=s;if(e)x.end=e});
+  renderMatActList();
+  flashTip('✓ 已把「'+act+'」填入全部 '+matActRows.length+' 个物料',1800);
+}
+// 选中已有活动时，自动带出它的起止日期（新活动保留手填的日期）
+function matActActPicked(i,val,scope){
+  const a=DB.activities.find(x=>x.name===String(val||'').trim());
+  if(!a)return;
+  const s=a.startDate||'',e=a.endDate||a.startDate||s;
+  if(scope==='batch'){
+    const bs=document.getElementById('maBatchStart'),be=document.getElementById('maBatchEnd');
+    if(bs&&s)bs.value=s;
+    if(be&&e)be.value=e;
+    return;
+  }
+  if(!matActRows[i])return;
+  if(s)matActRows[i].start=s;
+  if(e)matActRows[i].end=e;
+  const row=document.querySelector('#matActList .mat-act-row[data-r="'+i+'"]');
+  if(row){
+    const si=row.querySelector('input[data-k="start"]'),ei=row.querySelector('input[data-k="end"]');
+    if(si&&s)si.value=s;
+    if(ei&&e)ei.value=e;
+  }
 }
 function renderMatActList(){
   const opts=DB.activities.map(a=>`<option value="${esc(a.name)}"></option>`).join('');
@@ -2443,9 +2524,9 @@ function renderMatActList(){
   const el=document.getElementById('matActList');
   if(!el)return;
   el.innerHTML='<div class="mat-act-row head"><span>物料名称</span><span>所属活动（选已有或输入新名称）</span><span>开始日期</span><span>结束日期</span></div>'+
-    matActRows.map((x,i)=>`<div class="mat-act-row">
+    matActRows.map((x,i)=>`<div class="mat-act-row" data-r="${i}">
       <span class="ma-name" title="${esc(x.name)}">${esc(x.name)}${x.existing?'<i class="new">同名活动</i>':''}</span>
-      <input type="text" data-i="${i}" data-k="act" value="${esc(x.act)}" placeholder="选择已有活动或输入新名称" autocomplete="off" list="matActOpts">
+      <input type="text" data-i="${i}" data-k="act" value="${esc(x.act)}" placeholder="选择已有活动或输入新名称" autocomplete="off" list="matActOpts" onchange="matActActPicked(${i},this.value,'row')">
       <input type="date" data-i="${i}" data-k="start" value="${esc(x.start)}">
       <input type="date" data-i="${i}" data-k="end" value="${esc(x.end)}">
     </div>`).join('');
@@ -3193,14 +3274,17 @@ function exportCSV(){
   const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
-  a.download='飞书导入_'+new Date().toISOString().slice(0,10)+'.csv';
+  // 文件名优先用用户给订单填的备注；没备注则用订单名；再没有才用日期
+  const ord=currentOrderId?findOrder(currentOrderId):null;
+  const base=(ord&&String(ord.note||'').trim())||(ord&&String(ord.name||'').trim())||('飞书导入_'+new Date().toISOString().slice(0,10));
+  a.download=base.replace(/[\\\/:*?"<>|]/g,'_')+'.csv';
   a.click();URL.revokeObjectURL(a.href);
-  addLog('导出CSV '+sfData.length+' 条');
+  addLog('导出CSV '+sfData.length+' 条（'+base+'）');
 }
 
 // ==================== 月度活动汇总 ====================
 let chartArea=null;
-let dashRange=null;
+let dashSel=null; // null=默认按月份；数组=只统计勾选的活动名
 
 function dashRowsAll(){
   const out=[];
@@ -3213,47 +3297,61 @@ function dashRowsAll(){
   if(!hasCurrent&&sfData&&sfData.length)out.push.apply(out,sfData);
   return out;
 }
+// 弹窗里的活动勾选列表：DB.activities 全部列出 + 数据里出现过但活动已删的孤儿活动
+function dashActPool(){
+  const list=DB.activities.map(a=>({name:String(a.name||''),start:a.startDate||'',end:a.endDate||''}));
+  const seen={};list.forEach(a=>{seen[a.name]=1});
+  const dataActs=[...new Set(dashRowsAll().map(r=>r.activity).filter(Boolean))];
+  for(const n of dataActs)if(!seen[n]){seen[n]=1;list.push({name:n,start:'',end:''})}
+  return list.filter(a=>a.name).sort((a,b)=>(b.end||b.start||'').localeCompare(a.end||a.start||'')||a.name.localeCompare(b.name));
+}
+function renderDashActList(){
+  const el=document.getElementById('dashActList');
+  if(!el)return;
+  const pool=dashActPool();
+  if(!pool.length){el.innerHTML='<div class="dash-act-item empty">暂无活动</div>';return}
+  const sel=dashSel?new Set(dashSel):null;
+  el.innerHTML=pool.map(a=>{
+    const on=sel?sel.has(a.name):false;
+    const d=a.start?(a.end?a.start+' ~ '+a.end:a.start):'';
+    return '<label class="dash-act-item"><input type="checkbox" value="'+esc(a.name)+'"'+(on?' checked':'')+' onchange="dashActToggle(this)"><span>'+esc(a.name)+'</span>'+(d?'<span class="d">'+esc(d)+'</span>':'')+'</label>';
+  }).join('');
+}
+function dashActToggle(cb){
+  const name=cb.value;
+  let sel=dashSel?dashSel.slice():[];
+  if(cb.checked){if(sel.indexOf(name)<0)sel.push(name)}
+  else sel=sel.filter(n=>n!==name);
+  dashSel=sel.length?sel:null;
+  renderDashboard();
+}
+function dashSelAll(){
+  const pool=dashActPool().map(a=>a.name);
+  dashSel=pool.length?pool.slice():null;
+  renderDashActList();
+  renderDashboard();
+}
 function toggleDashPop(e){
   if(e&&e.stopPropagation)e.stopPropagation();
   const p=document.getElementById('dashPop');
   if(!p)return;
   const on=!p.classList.contains('show');
   p.classList.toggle('show',on);
-  if(on){
-    const s=document.getElementById('dashRangeS'),en=document.getElementById('dashRangeE');
-    if(dashRange){s.value=dashRange.s;en.value=dashRange.e}
-    else if(!s.value||!en.value){
-      const now=new Date();
-      const last=new Date(now.getFullYear(),now.getMonth()+1,0).getDate();
-      s.value=currentYM()+'-01';
-      en.value=currentYM()+'-'+String(last).padStart(2,'0');
-    }
-  }
+  if(on)renderDashActList();
 }
 function closeDashPop(){const p=document.getElementById('dashPop');if(p)p.classList.remove('show')}
-function applyDashRange(){
-  const sEl=document.getElementById('dashRangeS'),eEl=document.getElementById('dashRangeE');
-  const s=sEl?sEl.value:'',e=eEl?eEl.value:'';
-  if(!s||!e){flashTip('起始和结束日期都要选好',1800);return}
-  if(s>e){flashTip('起始日期不能晚于结束日期',1800);return}
-  dashRange={s:s,e:e};
-  renderDashboard();
-  addLog('区域活动概览按活动时间查看：'+s+' ~ '+e);
-}
 function resetDashRange(){
-  dashRange=null;
-  const s=document.getElementById('dashRangeS'),en=document.getElementById('dashRangeE');
-  if(s)s.value='';
-  if(en)en.value='';
+  dashSel=null;
   renderDashboard();
   closeDashPop();
 }
 function updateDashChip(){
   const c=document.getElementById('dashRangeChip');
   if(!c)return;
-  if(dashRange){
+  if(dashSel&&dashSel.length){
     c.style.display='';
-    c.innerHTML='活动时间 '+esc(dashRange.s)+' ~ '+esc(dashRange.e)+'<span class="x" title="取消按活动时间查看" onclick="resetDashRange()">✕</span>';
+    const lbl=dashSel.length<=2?dashSel.join('、'):('已选 '+dashSel.length+' 个活动');
+    c.innerHTML='☑ '+esc(lbl)+'<span class="x" title="取消勾选，回到默认" onclick="resetDashRange()">✕</span>';
   }else c.style.display='none';
 }
 document.addEventListener('click',()=>{
@@ -3277,13 +3375,15 @@ function renderDashboard(){
   for(const c of contacts){storeAreaMap[c.storeName]=c.area||'';storeChannelMap[c.storeName]=c.channel||''}
 
   let matched=[],withAct=[],viewActs=[],orphans=[],actLbl='',actCount=0;
-  if(dashRange){
-    const s=dashRange.s,e=dashRange.e;
-    viewActs=acts.filter(a=>a.startDate&&a.startDate<=e&&(a.endDate||a.startDate)>=s);
-    const names=new Set(viewActs.map(a=>a.name));
+  if(dashSel&&dashSel.length){
+    const names=new Set(dashSel);
+    viewActs=acts.filter(a=>names.has(a.name));
+    const dataActs=[...new Set(dashRowsAll().map(r=>r.activity).filter(Boolean))];
+    const missing=[...names].filter(n=>!acts.some(a=>a.name===n));
+    viewActs=viewActs.concat(missing.map(n=>({name:n,startDate:'',endDate:''})));
     matched=dashRowsAll().filter(r=>r.activity&&names.has(r.activity));
     withAct=matched.filter(r=>r.activity&&r.matchedStore);
-    actLbl='区间活动场次';
+    actLbl='勾选活动场次';
     actCount=viewActs.length;
   }else{
     for(const o of orders){
@@ -3341,7 +3441,7 @@ function renderDashboard(){
   const physicalStoreCount=new Set(physicalRows.map(r=>r.matchedStore)).size;
 
   document.getElementById('statsGrid').innerHTML=`
-    <div class="stat-card"><div class="num">${actCount}</div><div class="lbl"${dashRange?' data-lk="statActRange"':''}>${esc(actLbl)}</div></div>
+    <div class="stat-card"><div class="num">${actCount}</div><div class="lbl"${dashSel?' data-lk="statActRange"':''}>${esc(actLbl)}</div></div>
     <div class="stat-card o"><div class="num">${authCount}</div><div class="lbl" data-lk="statAuth">授权活动门店</div></div>
     <div class="stat-card g"><div class="num">${mijiaCount}</div><div class="lbl" data-lk="statMijia">米家活动门店</div></div>
     <div class="stat-card b"><div class="num">${giftFmt(giftTotal)}</div><div class="lbl" data-lk="statGiftTotal">礼品发放总数</div></div>`;
