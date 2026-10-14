@@ -1800,9 +1800,19 @@ function addActivity(){
   closeModal('actModal');
   // 从批量设活动下拉进来建的 → 建完自动选中它，直接点「应用到选中」即可
   pendingBatchActName=name;
+  // 从行内下拉进来建的 → 建完直接挂到那一行
+  if(pendingPvActRow>=0){
+    if(sfData[pendingPvActRow])sfData[pendingPvActRow].activity=name;
+    pendingPvActRow=-1;
+    persistSf();
+  }
   renderActEditList();refreshAll();
 }
 
+// 从下拉「＋ 新建活动…」进来时记下意图：建完后批量设活动下拉自动选中它
+let pendingBatchActName='';
+// 从行内「礼品所属活动」下拉进来时记下行号：建完自动挂到该行
+let pendingPvActRow=-1;
 function refreshBatchActSelect(){
   const sel=document.getElementById('batchActSelect');
   if(!sel)return;
@@ -1813,7 +1823,11 @@ function refreshBatchActSelect(){
     const label=a.startDate?a.name+'（'+a.startDate+' ~ '+a.endDate+'）':a.name;
     return `<option value="${esc(a.name)}">${esc(label)}</option>`;
   }).join('');
-  sel.value=(prev&&[...sel.options].some(o=>o.value===prev))?(prev||''):'';
+  if(pendingBatchActName&&[...sel.options].some(o=>o.value===pendingBatchActName)){
+    sel.value=pendingBatchActName;pendingBatchActName='';
+  }else{
+    sel.value=(prev&&[...sel.options].some(o=>o.value===prev))?(prev||''):'';
+  }
 }
 // 下拉里选「＋ 新建活动…」→ 立刻弹窗（不用再点应用）；弹窗打开后下拉还原
 function batchActSelChange(sel){
@@ -2841,9 +2855,10 @@ document.getElementById('previewBody').addEventListener('change',function(e){
   const f=el.dataset.f;
   if(!sfData[i]||!f)return;
   let v=el.value;
-  // 行内活动下拉选「＋ 新建活动…」：弹窗建活动，本行下拉还原为原值（建完刷新后可选中新活动）
+  // 行内活动下拉选「＋ 新建活动…」：弹窗建活动，建完自动挂到本行
   if(f==='activity'&&v==='__NEW__'){
     el.value=sfData[i].activity||'';
+    pendingPvActRow=i;
     openActModal();
     return;
   }
