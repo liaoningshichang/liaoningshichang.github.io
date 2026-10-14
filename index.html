@@ -1789,12 +1789,20 @@ function refreshBatchActSelect(){
   sel.innerHTML='<option value="">-- 选择活动 --</option>'+acts.map(a=>{
     const label=a.startDate?a.name+'（'+a.startDate+' ~ '+a.endDate+'）':a.name;
     return `<option value="${esc(a.name)}">${esc(label)}</option>`;
-  }).join('');
+  }).join('')+'<option value="__NEW__">＋ 新建活动…</option>';
   if(prev&&[...sel.options].some(o=>o.value===prev))sel.value=prev;
 }
 
 function batchApplyActivity(){
-  const actName=document.getElementById('batchActSelect').value;
+  const sel=document.getElementById('batchActSelect');
+  const actName=sel.value;
+  // 选「＋ 新建活动…」：先去把活动建出来（建完自动选中它，再点一次应用即可）
+  if(actName==='__NEW__'){
+    sel.value='';
+    openActModal();
+    alert('请在「新建活动」弹窗里填写名称和起止日期，保存后回到这里重新选择该活动，再点「应用到选中」。');
+    return;
+  }
   if(!actName){alert('请先选择活动');return}
   const checked=[...document.querySelectorAll('.p-cb:checked')];
   if(!checked.length){alert('请先勾选要应用的行');return}
@@ -2240,14 +2248,14 @@ function parseSF(file,orderTime,note){
       const ci={};
       const fc=ns=>headers.findIndex(h=>ns.some(n=>h.includes(n)));
       const fcs=ns=>{for(const n of ns){const i=headers.findIndex(h=>h.includes(n));if(i>=0)return i}return -1};
-      ci.tracking=fc(['运单号']);ci.name=fc(['收方姓名','收件人']);
+      ci.tracking=fc(['运单号','快递单号','物流单号','快递单','物流单']);ci.name=fc(['收方姓名','收件人']);
       ci.phone=fc(['收方手机','收件手机','手机']);ci.address=fc(['收件地址','收货地址','地址']);
       ci.productCode=fc(['商品编码','商品编号','物料代码']);ci.productName=fc(['商品名称','物料名称']);
       ci.qty=fc(['发货/出库数量','出库数量','发货数量','数量']);
       ci.date=fc(['数据创建时间','创建时间','下单时间','日期']);
       ci.warehouse=fcs(['仓库代码','仓库编码','仓库编号','发货仓库代码','所属仓库代码','收货仓库代码','仓库id']);
       if(ci.warehouse<0)ci.warehouse=fcs(['仓库']);
-      if(ci.tracking<0){alert('未找到"运单号"列');return}
+      if(ci.tracking<0){alert('未找到运单号列（支持：运单号 / 快递单号 / 物流单号）');return}
       const onlyWH=ci.warehouse>=0;
       if(!onlyWH&&!confirm('表头里没有找到「仓库代码」列，无法只导入 '+SF_WAREHOUSE+' 仓的订单。\n确定＝导入全部数据　取消＝放弃本次导入'))return;
       let skippedWH=0;
@@ -2257,7 +2265,9 @@ function parseSF(file,orderTime,note){
         const g=k=>ci[k]>=0?String(row[ci[k]]||'').trim():'';
         const tracking=g('tracking');if(!tracking)continue;
         if(onlyWH&&g('warehouse').replace(/\s+/g,'').toUpperCase()!==SF_WAREHOUSE){skippedWH++;continue}
-        sfData.push({tracking,name:g('name'),phone:g('phone'),address:g('address'),productCode:g('productCode'),productName:g('productName'),qty:parseFloat(g('qty'))||0,matchedStore:'',activity:''});
+        // 数量列缺失或该行留空 → 默认按 1 件计（顺丰回单常常不带数量，但每条记录至少是一件货）
+        const q=parseFloat(g('qty'));
+        sfData.push({tracking,name:g('name'),phone:g('phone'),address:g('address'),productCode:g('productCode'),productName:g('productName'),qty:(ci.qty>=0&&!isNaN(q))?q:1,matchedStore:'',activity:''});
       }
       if(!sfData.length){
         alert(onlyWH&&skippedWH?('文件里 '+skippedWH+' 条记录的仓库代码都不是 '+SF_WAREHOUSE+'，未导入任何数据'):'未读取到有效数据');
@@ -2390,7 +2400,7 @@ function matchAll(){
       for(const k of list){if(k.rn&&k.rn===rN){n++;namePick=k}}
       if(n===1)pick={k:namePick,s:0,p:false,nm:true};
     }
-    if(pick)row.matchedStore=pick.k.c.storeName;
+    if(pick){row.matchedStore=pick.k.c.storeName;if(!row.phone)row.phone=pick.k.c.phone||''}
   }
 }
 
@@ -2767,6 +2777,14 @@ document.getElementById('previewBody').addEventListener('change',function(e){
       if(codeCell){codeCell.textContent=code;codeCell.setAttribute('data-code',code)}
       tr.children[7].className=v?'cell-matched':'cell-unmatched';
       tr.children[9].innerHTML=v?'<span class="badge badge-green">已匹配</span>':'<span class="badge badge-red">未匹配</span>';
+      // 手机号为空时，选完门店自动用门店库里的号码补齐（显示+存数据）
+      if(!sfData[i].phone&&v){
+        const c=DB.contacts.find(x=>x.storeName===v);
+        if(c&&c.phone){
+          sfData[i].phone=c.phone;
+          tr.children[5].textContent=c.phone;
+        }
+      }
     }
   }
   if(f==='productName'){
