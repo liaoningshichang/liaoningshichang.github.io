@@ -895,6 +895,10 @@ iframe[id^="sb__open-sandbox"]{display:none!important}
       <button class="btn btn-gray btn-sm" onclick="document.getElementById('backupFile').click()">从备份恢复</button>
     </div>
     <p style="font-size:12px;color:#999;margin-top:8px">换了浏览器/链接导致数据消失时：先配置云同步（自动恢复），或用备份文件恢复。</p>
+    <div style="margin-top:12px;border-top:1px solid #eee;padding-top:8px">
+      <div style="font-size:12px;font-weight:600;color:#555;margin-bottom:4px">最近操作记录（最多 50 条）</div>
+      <div id="logList" style="max-height:200px;overflow:auto"></div>
+    </div>
     <div class="modal-actions">
       <button class="btn btn-gray" onclick="closeModal('backupModal')">关闭</button>
     </div>
@@ -1464,14 +1468,15 @@ function cPasteBlock(text){
   const startLen=cList.length;
   const totalRows=DB.contacts.length;
   if(needR>cList.length){
+    // 过滤时 cList 是过滤结果，行号 = 过滤视图行号；清掉过滤后行号不再对应，
+    // 所以过滤中粘贴超出可见行一律中止，避免写到别的门店行上
+    if(cFilter){flashTip('正在搜索过滤中，粘贴已超出可见行：请先清空搜索再粘贴',2600);return}
     const add=needR-cList.length;
     const all=DB.contacts.slice();
     for(let i=0;i<add;i++)all.push({id:uid(),storeCode:'',storeName:'',city:'',district:'',area:'',status:'营业中',channel:'直营',recipient:'',phone:'',address:''});
     DB.contacts=all;
-    const wasFilter=cFilter;
-    cFilter='';document.getElementById('contactSearch').value='';
     renderContacts();
-    if(wasFilter)flashTip('已清除搜索并追加 '+add+' 行',2200);
+    flashTip('已追加 '+add+' 行',2200);
   }
   let n=0;
   grid.forEach((line,ri)=>{
@@ -1628,6 +1633,7 @@ function chDetect(matrix,src){
   const contacts=DB.contacts.slice();
   const byCode=new Map(),byName=new Map();
   contacts.forEach((c,i)=>{
+    if(!c.id)c.id=uid(); // 旧数据自动补 id：比对结果存 id，写入时重新查找，避免云同步后下标错位
     const sc=cleanStr(c.storeCode).toUpperCase();if(sc&&!byCode.has(sc))byCode.set(sc,i);
     const sn=cleanStr(c.storeName);if(sn&&!byName.has(sn))byName.set(sn,i);
   });
@@ -1663,7 +1669,7 @@ function chDetect(matrix,src){
       if(!nv)continue;
       const ov=String(c[f]==null?'':c[f]);
       if(chSame(f,ov,nv))continue;
-      changes.push({ci:hit,field:f,fieldLabel:label,from:ov,to:nv,storeCode:c.storeCode||g(cm.storeCode),storeName:c.storeName||g(cm.storeName)});
+      changes.push({cid:c.id,field:f,fieldLabel:label,from:ov,to:nv,storeCode:c.storeCode||g(cm.storeCode),storeName:c.storeName||g(cm.storeName)});
     }
   }
   return {rows,matched,marked,unmatched,changes,source:String(src||'活动确认表'),date:new Date().toISOString().slice(0,10)};
@@ -1671,7 +1677,7 @@ function chDetect(matrix,src){
 // 用户在弹窗里选完后才落库：勾选=处理，替换=更新现值并记历史，仅存历史=只建记录不改现值
 function chApplyDetections(){
   if(!chPending)return;
-  const rows=[...document.querySelectorAll('#chRevBody tr[data-ci],#chRevBody tr[data-new]')];
+  const rows=[...document.querySelectorAll('#chRevBody tr[data-cid],#chRevBody tr[data-new]')];
   const contacts=DB.contacts.slice();let updated=0,added=0,addedStores=0,skippedNew=0;
   const hist=[];
   rows.forEach(tr=>{
@@ -1693,10 +1699,11 @@ function chApplyDetections(){
       addedStores++;
       return;
     }
-    const ci=+tr.dataset.ci,f=tr.dataset.field;
+    const cid=tr.dataset.cid,f=tr.dataset.field;
     const act=(tr.querySelector('.ch-rev-act')||{}).value||'replace';
     const nv=tr.dataset.to||'',ov=tr.dataset.from||'';
-    const c=contacts[ci];if(!c)return;
+    // 弹窗开着期间云同步可能重排/替换门店列表：按 id 重新查找，找不到就跳过
+    const c=contacts.find(x=>String(x.id)===String(cid));if(!c)return;
     if(act==='replace'){c[f]=nv;updated++}
     added++;
     const label=(CH_FIELDS.find(p=>p[0]===f)||[])[1]||f;
@@ -1729,7 +1736,7 @@ document.getElementById('cConfirmFile').addEventListener('change',function(e){
 });
 function renderChReview(r){
   const body=document.getElementById('chRevBody');
-  const changeRows=r.changes.map(c=>`<tr data-ci="${c.ci}" data-field="${c.field}" data-to="${esc(c.to)}" data-from="${esc(c.from)}">
+  const changeRows=r.changes.map(c=>`<tr data-cid="${esc(c.cid)}" data-field="${c.field}" data-to="${esc(c.to)}" data-from="${esc(c.from)}">
     <td class="cb-col"><input type="checkbox" class="ch-rev-cb" checked></td>
     <td class="ch-rev-store">${esc(c.storeName||c.storeCode)}<span class="ch-rev-code">${esc(c.storeCode||'')}</span></td>
     <td>${esc(c.fieldLabel)}</td>
@@ -2322,7 +2329,7 @@ function openSyncConfig(){
 function openSetSection(k){
   const show=id=>document.getElementById(id).classList.add('show');
   if(k==='page'||k==='sync'){setAction(k);return}
-  if(k==='backup'){renderEnvDiag();show('backupModal');return}
+  if(k==='backup'){renderEnvDiag();renderLogs();show('backupModal');return}
   if(k==='label'){renderLabelEditList();show('labelModal');return}
   if(k==='orders'){renderManageOrderList();show('ordersModal');return}
 }
@@ -2665,8 +2672,9 @@ function renderTrackPending(){
 }
 function toggleTrackPending(){
   if(!sfData.length)return;
-  trackPendingOnly=!trackPendingOnly;
+  const want=!trackPendingOnly; // clearPFilters 会复位标志：先记下意图，再清筛选，最后置回目标状态
   clearPFilters();
+  trackPendingOnly=want;
   if(trackPendingOnly){
     // 用 pFilters 精确复用现有筛选通道：把「运单号为空」的行标出来
     pFilters.tracking=new Set(['__BLANK__']);
@@ -2848,7 +2856,7 @@ function pfLabel(col,k){
   if(k!=='__BLANK__')return k;
   return (col==='matchedStore'||col==='storeCode')?'（空白 · 未匹配）':'（空白）';
 }
-function clearPFilters(){for(const k in pFilters)delete pFilters[k];updateFilterMarks()}
+function clearPFilters(){for(const k in pFilters)delete pFilters[k];trackPendingOnly=false;updateFilterMarks()}
 
 function updateFilterMarks(){
   document.querySelectorAll('#previewHead th[data-col]').forEach(th=>{
@@ -3458,7 +3466,6 @@ function renderDashboard(){
     const k=matKindOf[String(name==null?'':name).trim()];
     return k===undefined||k==='实物礼品';
   };
-  const physicalRows=withAct.filter(r=>isPhysicalGift(r.productName));
   let giftTotal=0;
   const actStoreMap={};
   const actSessionMap={};
@@ -3474,7 +3481,6 @@ function renderDashboard(){
   const actNames=viewActs.map(a=>a.name);
   const giftFmt=v=>numOf(v)>0?numOf(v).toLocaleString('zh-CN'):'0';
   const giftOf=n=>actGiftMap[n]||0;
-  const physicalStoreCount=new Set(physicalRows.map(r=>r.matchedStore)).size;
 
   document.getElementById('statsGrid').innerHTML=`
     <div class="stat-card"><div class="num">${actCount}</div><div class="lbl"${dashSel?' data-lk="statActRange"':''}>${esc(actLbl)}</div></div>
@@ -3865,7 +3871,7 @@ function renderEnvDiag(){
 
 // ==================== 物料分配 ====================
 let aPage=1,aPageSize=50,aFilter='',aFilters={};
-let aAll=[],aList=[],aSel=null,aAnchor=null,aDrag=false,allocUndo=null;
+let aAll=[],aList=[],aSel=null,aAnchor=null,aDrag=false;
 let aColsCache=null,aCtxCache=null;
 let aDebounce=debounce(v=>{aFilter=v;aPage=1;aSel=null;renderAlloc()},300);
 const AFIX=[['storeCode','门店代码'],['storeName','门店名称'],['recipient','收件人'],['phone','收件手机'],['address','收件地址'],['weight','权重']];
@@ -4064,6 +4070,18 @@ function fEval(n,env){
     }
     case 'call':{
       const name=n.name;
+      // IF / IFERROR 惰性求值：条件或值算错时不能连累另一个分支
+      if(name==='IF'){
+        const br=fTruth(fEval(n.args[0],env))?n.args[1]:n.args[2];
+        return br===undefined?false:fEval(br,env);
+      }
+      if(name==='IFERROR'){
+        // 语义：IFERROR(值, 出错时返回) —— 值抛错或已是 #ERR 时才取第二个参数
+        let v;
+        try{v=fEval(n.args[0],env)}catch(e){v='#ERR'}
+        if(typeof v==='string'&&/^#/.test(v))return n.args.length>1?fEval(n.args[1],env):v;
+        return v;
+      }
       const args=n.args.map(a=>fEval(a,env));
       const nums=fNums(args);
       switch(name){
@@ -4078,8 +4096,6 @@ function fEval(n,env){
         case 'INT':return Math.floor(numOf(args[0]));
         case 'MOD':return numOf(args[1])===0?0:numOf(args[0])%numOf(args[1]);
         case 'POWER':return Math.pow(numOf(args[0]),numOf(args[1]));
-        case 'IF':return fTruth(args[0])?args[1]:args[2];
-        case 'IFERROR':return fTruth(args[1])&&/^#/.test(String(args[1]))?args[2]:args[0];
       }
       throw new Error('不支持的函数 '+name);
     }
@@ -4109,19 +4125,6 @@ function aEnv(ctx,ri,stack){
     id:n=>{throw new Error('不支持的名称：'+n.v)}
   };
 }
-function wEnv(rec){
-  return{
-    ref:()=>0,
-    range:()=>[],
-    id:n=>{
-      if(!rec)return 0;
-      if(Object.prototype.hasOwnProperty.call(rec,n.v))return rec[n.v];
-      const k=Object.keys(rec).find(x=>String(x).trim()===String(n.v).trim());
-      return k?rec[k]:0;
-    }
-  };
-}
-
 // ---------- 物料台账 ----------
 function allocUsed(){
   const cols=allocCols();
@@ -4302,8 +4305,8 @@ function saveMatModal(){
     const cols=allocCols();
     const col=cols.find(x=>String(x.mat)===String(newId));
     if(col){
-      allocUndo=JSON.stringify(aAll);
-      aAll.forEach((r,idx)=>aSet(r,col,String(c.per+(idx<c.remain?1:0))));
+      // 只写入前 min(参加门店数, 分配表行数) 行，保证列合计 = 发货总数，不超发
+      aAll.slice(0,c.rows).forEach((r,idx)=>aSet(r,col,String(c.per+(idx<c.remain?1:0))));
       aSave();aCtxCache=null;
     }
     closeModal('matModal');
@@ -4377,7 +4380,7 @@ function renderAlloc(){
   if(!total){
     let msg;
     if(!cols.some(c=>c.mat!==undefined))msg='请先在上方「物料台账」新增物料，再选择门店开始分配。';
-    else if(!aAll.length)msg='还没有分配行：点工具栏「从通讯录选门店」批量加入，或「+ 手动加行」。';
+    else if(!aAll.length)msg='还没有分配行：点工具栏「按导入名单分配」批量加入，或「+ 手动加行」。';
     else msg='没有匹配当前搜索 / 筛选的行。';
     body.innerHTML='<tr><td colspan="'+(cols.length+1)+'"><div class="empty">'+msg+'</div></td></tr>';
     document.getElementById('allocPager').innerHTML='';
@@ -4808,7 +4811,6 @@ function applyRoster(rows){
     if(nn&&!byName.has(nn))byName.set(nn,c);
   });
   let addedRows=0, filled=0;
-  allocUndo=JSON.stringify(aAll);
   for(let i=hr+1;i<rows.length;i++){
     const r=rows[i]||[];
     const code=codeIdx>=0?String(r[codeIdx]==null?'':r[codeIdx]).trim().toUpperCase():'';
