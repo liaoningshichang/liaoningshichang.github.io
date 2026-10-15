@@ -536,9 +536,10 @@ iframe[id^="sb__open-sandbox"]{display:none!important}
     </div>
 
     <div class="dash-cols">
-    <div class="chart-box">
+    <div class="chart-box" id="areaChartBox">
       <h4><span data-lk="areaChartTitle">各小区/区域门店数</span><span class="legend"><i style="background:#f9ab00"></i>授权<i style="background:#34a853"></i>专卖/米家<i style="background:#4285f4"></i>汽车<i style="background:#9aa0a6"></i>其他</span></h4>
       <canvas id="chartArea" style="max-height:350px"></canvas>
+      <div class="tbl-img-bar"><button class="btn btn-gray btn-sm" onclick="copyTableAsImage('areaChartBox',this)">复制为图片</button></div>
     </div>
 
     <div class="cross-table" id="crossTable">
@@ -3624,15 +3625,22 @@ function renderDashboard(){
   wireColResize('dashMat','dashMatHead',null);
   applyColwTo('dashSum');applyColwTo('dashCross');applyColwTo('dashMat');
 }
-// 复制表格为图片：html2canvas 渲染 → 写入剪贴板（失败则下载）
-function copyTableAsImage(bodyId,btn){
-  const host=document.getElementById(bodyId);
-  const tbl=host?host.querySelector('table'):null;
-  if(!tbl){alert('该表暂无数据可复制');return}
+// 复制表格/图表为图片：html2canvas 渲染 → 写入剪贴板（失败则下载）
+function copyTableAsImage(target,btn){
+  const host=typeof target==='string'?document.getElementById(target):target;
+  if(!host){alert('暂无可复制的内容');return}
+  // 表格容器则截 table；图表这类没有 table 的容器则整体截
+  const tbl=host.querySelector?host.querySelector('table'):null;
+  const capture=tbl||host;
   if(typeof html2canvas==='undefined'){alert('图片库未加载，请联网后刷新页面重试');return}
+  // 截图期间隐藏按钮条，避免按钮出现在图片里
+  const bars=[...(capture.querySelectorAll?capture.querySelectorAll('.tbl-img-bar'):[])];
+  const showBars=()=>bars.forEach(b=>b.style.visibility='');
   const old=btn?btn.textContent:'';
   if(btn){btn.textContent='生成中…';btn.disabled=true}
-  html2canvas(tbl,{backgroundColor:'#ffffff',scale:2,useCORS:true}).then(canvas=>{
+  bars.forEach(b=>b.style.visibility='hidden');
+  html2canvas(capture,{backgroundColor:'#ffffff',scale:2,useCORS:true}).then(canvas=>{
+    showBars();
     canvas.toBlob(blob=>{
       if(btn){btn.textContent=old;btn.disabled=false}
       if(!blob){alert('生成图片失败');return}
@@ -3642,11 +3650,11 @@ function copyTableAsImage(bodyId,btn){
         }).catch(()=>downloadBlob(blob));
       }else downloadBlob(blob);
     },'image/png');
-  }).catch(()=>{if(btn){btn.textContent=old;btn.disabled=false};alert('生成图片失败')});
+  }).catch(()=>{showBars();if(btn){btn.textContent=old;btn.disabled=false};alert('生成图片失败')});
   function downloadBlob(blob){
     const a=document.createElement('a');
     a.href=URL.createObjectURL(blob);
-    a.download='表格_'+new Date().toISOString().slice(0,10)+'.png';
+    a.download='图表_'+new Date().toISOString().slice(0,10)+'.png';
     a.click();
     setTimeout(()=>URL.revokeObjectURL(a.href),1000);
     flashTip('已下载为图片文件',2000);
