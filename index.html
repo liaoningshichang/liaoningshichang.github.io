@@ -1573,7 +1573,7 @@ function exportContacts(){
 
 // ==================== 门店信息更新检测 / 门店信息历史 ====================
 // 店长在飞书公示表里改过的收货人/收货电话/收货地址，导入后自动写回门店信息，旧值进历史
-const CH_FIELDS=[['storeName','门店名称'],['recipient','收货人'],['phone','收货电话'],['address','收货地址']];
+const CH_FIELDS=[['storeCode','门店代码'],['storeName','门店名称'],['recipient','收货人'],['phone','收货电话'],['address','收货地址']];
 const CH_ALIASES={
   storeCode:['门店代码','门店编码'],
   storeName:['门店名称','门店名'],
@@ -1592,6 +1592,8 @@ const CH_ALIASES={
 function chNorm(field,v){
   if(field==='phone')return cleanPhone(v);
   if(field==='address')return normAddr(v);
+  // 门店代码是匹配键，匹配时不区分大小写 → 大小写差异不算变动，只报真正换号的情况
+  if(field==='storeCode')return cleanStr(v).toUpperCase();
   return cleanStr(v);
 }
 // 地址常出现"省市区前缀重复"这类脏数据（表里前缀抄了两遍），归一化后一方包含另一方也算没变
