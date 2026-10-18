@@ -577,7 +577,7 @@ iframe[id^="sb__open-sandbox"]{display:none!important}
       <button class="btn btn-primary" data-lk="btnAddRow" onclick="addContactRow()">+ 新增行</button>
       <button class="btn btn-success" data-lk="btnExportContacts" onclick="exportContacts()">导出</button>
       <input type="file" accept=".xlsx,.xls,.csv" id="cConfirmFile" style="display:none">
-      <button class="btn btn-outline" data-lk="btnImportConfirm" title="导入店长确认过的门店信息表：收货人/电话/地址的变动逐条核对后写入（旧值入历史），没匹配到门店的行会作为新门店新增" onclick="document.getElementById('cConfirmFile').click()">门店信息比对更新</button>
+      <button class="btn btn-outline" data-lk="btnImportConfirm" title="导入店长确认过的门店信息表：门店代码/收货人/电话/地址的变动逐条核对后写入（旧值入历史），没匹配到门店的行会作为新门店新增" onclick="document.getElementById('cConfirmFile').click()">门店信息比对更新</button>
       <button class="btn btn-outline" data-lk="btnViewHistory" onclick="openChHistory()">历史记录</button>
       <input type="text" class="search-box" id="contactSearch" placeholder="搜索门店、收货人、地址…">
       <span style="font-size:12px;color:#999;margin-left:auto" data-lk="contactHint">点击单元格编辑，拖动框选后 Ctrl+C / Ctrl+V 复制粘贴</span>
@@ -3851,6 +3851,7 @@ function checkDataEmpty(){
   const b=document.getElementById('dataAlert');
   if(b)b.style.display='flex';
 }
+const APP_VER='2026-10-15.3';
 function renderEnvDiag(){
   const el=document.getElementById('envDiag');
   if(!el)return;
@@ -3862,6 +3863,7 @@ function renderEnvDiag(){
     }
   }catch(e){}
   const line=[];
+  line.push('系统版本：<b>'+esc(APP_VER)+'</b>（版本号对不上 = 浏览器还在用缓存的旧页面，请 Cmd+Shift+R 或用无痕窗口）');
   line.push('当前地址：'+esc(location.origin+location.pathname));
   line.push('云同步：'+(syncCfg?'<span style="color:#1e8e3e">已配置 '+esc(syncCfg.url)+'</span>':'<span style="color:#c00">未配置（数据只在本机）</span>'));
   line.push('数据：联系人 '+DB.contacts.length+' 条 · 物流单 '+DB.orders.length+' 条 · 活动 '+DB.activities.length+' 个 · 物料 '+DB.materials.length+' 个 · 分配行 '+DB.alloc.length+' 行 · 界面文案 '+Object.keys(DB.labels||{}).length+' 条');
