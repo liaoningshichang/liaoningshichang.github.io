@@ -481,7 +481,7 @@ iframe[id^="sb__open-sandbox"]{display:none!important}
       </div>
 
       <div class="toolbar" style="gap:10px;align-items:center;flex-wrap:wrap">
-        <button class="btn btn-outline" data-lk="btnMatchAct" title="按顺丰回单的商品名称，模糊匹配到「新建活动」里已有的活动，自动填好每一行的礼品所属活动" onclick="autoMatchActivity()">按商品名称匹配活动</button>
+        <button class="btn btn-outline" data-lk="btnMatchAct" title="用每行的商品名称去猜属于哪个活动，猜中就把导出CSV里「所属活动」那一列填好（猜错的会改掉现值）。导入时会自动先填一遍，这里是对存量数据再跑一次" onclick="autoMatchActivity()">按商品名自动填「所属活动」</button>
         <span id="trackPendingWrap" style="display:none;font-size:13px">
           <button class="btn btn-gray" style="border-color:#f9ab00;color:#b06000" onclick="toggleTrackPending()" title="只看还没填物流单号的行，方便回头补录">
             物流单号待更新 <b id="trackPendingCount">0</b>
@@ -2053,6 +2053,7 @@ function updateSelCount(){
 // ==================== 物流管理 ====================
 let sfData=[];
 let lastAddrWarn='';   // 最近一次导入的「地址列可能取错」警告，进报告弹窗时一并显示
+let trackPendingOnly=false;   // 「物流单号待更新」视图开关（提前声明：renderMatchInfo 会用到）
 let sfYM='';
 let currentOrderId='';
 
@@ -2190,7 +2191,7 @@ const LABEL_DEFS=[
   ['btnSettings','「设置」按钮','设置'],
   ['btnExportCsv','「下载CSV」按钮','下载CSV'],
   ['btnClearOrder','「清空当前单数据」按钮','清空当前单数据'],
-  ['btnMatchAct','「按商品名称匹配活动」按钮','按商品名称匹配活动'],
+  ['btnMatchAct','物流页「自动填所属活动」按钮','按商品名自动填「所属活动」'],
   ['batchActLabel','「批量设活动」标签','批量设活动：'],
   ['btnApplySel','「应用到选中」按钮','应用到选中'],
   ['batchMatLabel','「批量设物料」标签','批量设物料：'],
@@ -2517,6 +2518,8 @@ function parseSF(file,orderTime,note){
       }
       clearPFilters();
       matchAll();
+      const am=matchActivities();   // 导入时先按商品名称把「所属活动」填好，弹窗里只需改没对上的
+      if(am.filled)addLog('按商品名称自动填「所属活动」：'+am.filled+' 行');
       persistSf();
       document.getElementById('importResult').style.display='block';
       document.getElementById('batchRow').style.display='flex';
@@ -2557,8 +2560,10 @@ function openMatActModal(){
   const d=matActDefaultDates();
   const acts=DB.activities;
   matActRows=names.map(n=>{
-    const hit=acts.some(a=>a.name===n);
-    return {name:n,act:hit?n:'',start:d.start,end:d.end,existing:hit};
+    // 导入时已经按商品名称自动填过的活动直接带出来，只改没对上的
+    const pre=String((sfData.find(r=>String(r.productName||'').trim()===n&&String(r.activity||'').trim())||{}).activity||'').trim();
+    const same=acts.some(a=>a.name===n);   // 角标「同名活动」只看商品名是否恰好等于活动名
+    return {name:n,act:pre||(same?n:''),start:d.start,end:d.end,existing:same};
   });
   renderMatActList();
   // 顶部「统一设置」条：默认把第一行的活动/日期填进去，方便一键填全部
@@ -2704,7 +2709,6 @@ function renderMatchInfo(){
 }
 
 // ---------- 物流单号待更新：只看还没填运单号的行 ----------
-let trackPendingOnly=false;
 function trackPendingIdx(){
   const out=[];
   for(let i=0;i<sfData.length;i++){
@@ -2719,7 +2723,9 @@ function renderTrackPending(){
   const hint=document.getElementById('trackPendingHint');
   if(!wrap||!cnt)return;
   const n=trackPendingIdx().length;
-  if(!sfData.length){wrap.style.display='none';if(hint)hint.style.display='none';return}
+  // 没有缺单号的行就不占位置：上传回单时每行都带单号，这按钮恒为 0 纯属噪音；
+  // 但正停在该视图里时必须留着按钮，否则表格空了就没法退出
+  if(!sfData.length||(n===0&&!trackPendingOnly)){wrap.style.display='none';if(hint)hint.style.display='none';return}
   wrap.style.display='inline-block';
   cnt.textContent=n;
   if(hint){
@@ -2745,10 +2751,10 @@ function toggleTrackPending(){
 
 // ---------- 按顺丰商品名称模糊匹配活动 ----------
 function normAct(s){return String(s==null?'':s).toLowerCase().replace(/[\s_\-—－·，,。.()（）【】\[\]]/g,'')}
-function autoMatchActivity(){
-  if(!sfData.length){flashTip('还没有物流数据',1800);return}
+// 纯匹配：把每行商品名称猜出的活动填进 r.activity（值不同的会被覆盖），不提示不渲染
+function matchActivities(){
   const acts=DB.activities||[];
-  if(!acts.length){flashTip('「新建活动」里还没有活动，先去物流页新建活动',2600);return}
+  if(!acts.length)return {filled:0,touched:0,noActs:true};
   // 每个活动准备若干匹配键：活动名本身 + 零售通扫码名称 + 活动规则里的关键词
   const keys=acts.map(a=>{
     const variants=[a.name,a.scanName].filter(Boolean);
@@ -2763,7 +2769,6 @@ function autoMatchActivity(){
     return {name:a.name,keys:kws};
   }).filter(x=>x.keys.length);
   let filled=0,touched=0;
-  const touchedIdx=[];
   for(let i=0;i<sfData.length;i++){
     const r=sfData[i];
     const np=normAct(r.productName);
@@ -2776,16 +2781,22 @@ function autoMatchActivity(){
       }
       if(hit)break;
     }
-    if(hit&&String(r.activity||'')!==hit){
-      r.activity=hit;filled++;touchedIdx.push(i);
-    }else if(hit){touched++}
+    if(hit&&String(r.activity||'')!==hit){r.activity=hit;filled++}
+    else if(hit){touched++}
   }
+  return {filled,touched};
+}
+function autoMatchActivity(){
+  if(!sfData.length){flashTip('还没有物流数据',1800);return}
+  if(!(DB.activities||[]).length){flashTip('「新建活动」里还没有活动，先去物流页新建活动',2600);return}
+  const r=matchActivities();
+  const filled=r.filled,touched=r.touched;
   if(filled>0){persistSf();renderMatchInfo();renderPreview();renderDashboard();renderOrderSelect()}
   renderTrackPending();
   if(filled===0){
     flashTip(touched?('这 '+touched+' 行的商品名称已匹配上活动，没有新的要填'):('没有把商品名称对上活动，可在表格里手动选「礼品所属活动」'),3000);
   }else{
-    addLog('按商品名称匹配活动：'+filled+' 行自动填入活动');
+    addLog('按商品名自动填「所属活动」：'+filled+' 行');
     flashTip('✓ '+filled+' 行已自动匹配活动'+(touched?('，另 '+touched+' 行原本已匹配'):''),3200);
   }
 }
