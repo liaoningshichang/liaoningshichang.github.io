@@ -430,9 +430,12 @@ iframe[id^="sb__open-sandbox"]{display:none!important}
 
 <div class="tabs">
   <div class="tab active" data-page="import" data-lk="tabImport">物流管理</div>
+  <!-- 定位收敛（2026-10-20）：系统只做「回单→匹配门店→导出CSV」，下面两个入口下架。
+       页面与代码全部保留，把注释去掉即可恢复；数据、云同步、备份结构均未改动。
   <div class="tab" data-page="dashboard" data-lk="tabDashboard">月度活动汇总</div>
-  <div class="tab" data-page="contacts" data-lk="tabContacts">门店信息</div>
   <div class="tab" data-page="alloc" data-lk="tabAlloc">物料分配</div>
+  -->
+  <div class="tab" data-page="contacts" data-lk="tabContacts">门店信息</div>
 </div>
 
 <div class="content">
@@ -3435,6 +3438,8 @@ document.addEventListener('click',()=>{
 });
 
 function renderDashboard(){
+  // 该页已下架（标签入口被注释掉），页面还在但不再需要刷新，直接跳过省算力
+  if(!document.querySelector('[data-page="dashboard"]'))return;
   const contacts=DB.contacts;
   const acts=DB.activities;
 
@@ -4368,6 +4373,8 @@ function aSave(){DB.alloc=aAll}
 // ---------- 渲染 ----------
 function afKey(v){return (v===''||v===null||v===undefined)?'__BLANK__':String(v)}
 function renderAlloc(){
+  // 该页已下架（标签入口被注释掉），页面还在但不再需要刷新，直接跳过
+  if(!document.querySelector('[data-page="alloc"]'))return;
   const head=document.getElementById('allocHead');
   const body=document.getElementById('allocBody');
   if(!head||!body)return;
