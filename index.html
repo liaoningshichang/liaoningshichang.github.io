@@ -2416,7 +2416,44 @@ function detectYM(rows,ci,fallback){
   return fallback;
 }
 
-const SF_WAREHOUSE='024DCB';
+// ---------- 本分公司识别规则（满足任一条即视为本分公司的单） ----------
+// 过去只认省仓代码，收件人省、备注、发件人这几种常见写法一概丢弃；
+// 现在「仓库代码=省仓」或「收件人省含辽宁」或「备注/发件人含关键字」任意一条命中就导入。
+const SF_WAREHOUSE='024DCB';      // 省仓代码（024=沈阳）
+const SF_PROVINCE='辽宁';         // 收件人省含此字；没有省列时看收件地址开头
+const SF_CONTACTS=['董雪'];       // 备注 / 发件人（寄件人）含任一关键字
+function sfMapCols(headers){
+  const ci={};
+  const fc=ns=>headers.findIndex(h=>ns.some(n=>h.includes(n)));
+  const fcs=ns=>{for(const n of ns){const i=headers.findIndex(h=>h.includes(n));if(i>=0)return i}return -1};
+  const fx=ns=>{for(const n of ns){const i=headers.findIndex(h=>String(h||'')===n);if(i>=0)return i}return -1};
+  ci.tracking=fc(['运单号','快递单号','物流单号','快递单','物流单']);ci.name=fc(['收方姓名','收件人']);
+  // 收件地址/收件电话按别名逐个找：寄件地址、寄件电话常常排在前面，
+  // 用「首列命中」会把寄件方的信息当成收件方的
+  ci.phone=fcs(['收方手机','收件手机','收件电话','收货电话','手机']);
+  ci.address=fcs(['收件地址','收货地址','地址']);
+  ci.productCode=fc(['商品编码','商品编号','物料代码']);ci.productName=fc(['商品名称','物料名称']);
+  ci.qty=fc(['发货/出库数量','出库数量','发货数量','数量']);
+  ci.date=fc(['数据创建时间','创建时间','下单时间','日期']);
+  ci.warehouse=fcs(['仓库代码','仓库编码','仓库编号','发货仓库代码','所属仓库代码','收货仓库代码','省仓代码','省仓编号','仓库id']);
+  if(ci.warehouse<0)ci.warehouse=fcs(['仓库']);
+  // 收件人省：专用列优先 → 整列名恰为「省」→ 退到只含「省」且不是「省仓/仓库」的列
+  ci.province=fcs(['收件人省','收货人省','收件省份','收货省份','省份']);
+  if(ci.province<0)ci.province=fx(['省','所在省']);
+  if(ci.province<0)ci.province=headers.findIndex(h=>{const s=String(h||'');return s.includes('省')&&!s.includes('仓')&&!/代码|编码|名称/.test(s)});
+  ci.note=fcs(['备注','订单备注','备注信息','附言']);
+  ci.sender=fcs(['发件人','寄件人','发货人','发件方','寄件方']);
+  return ci;
+}
+function sfIsMine(g,ci){
+  if(ci.warehouse>=0&&g('warehouse').replace(/\s+/g,'').toUpperCase()===SF_WAREHOUSE)return true;
+  if(ci.province>=0&&g('province').indexOf(SF_PROVINCE)>=0)return true;
+  if(ci.note>=0&&SF_CONTACTS.some(k=>g('note').indexOf(k)>=0))return true;
+  if(ci.sender>=0&&SF_CONTACTS.some(k=>g('sender').indexOf(k)>=0))return true;
+  // 没有省列的表，按收件地址开头判断省份
+  if(ci.province<0&&ci.address>=0&&g('address').replace(/\s/g,'').indexOf(SF_PROVINCE)===0)return true;
+  return false;
+}
 function parseSF(file,orderTime,note){
   if(typeof XLSX==='undefined'){alert('Excel 解析库未加载，请联网后刷新页面重试');return}
   const reader=new FileReader();
@@ -2428,26 +2465,18 @@ function parseSF(file,orderTime,note){
       const rows=XLSX.utils.sheet_to_json(ws,{header:1});
       if(rows.length<2){alert('文件为空');return}
       const headers=rows[0].map(h=>String(h).trim());
-      const ci={};
-      const fc=ns=>headers.findIndex(h=>ns.some(n=>h.includes(n)));
-      const fcs=ns=>{for(const n of ns){const i=headers.findIndex(h=>h.includes(n));if(i>=0)return i}return -1};
-      ci.tracking=fc(['运单号','快递单号','物流单号','快递单','物流单']);ci.name=fc(['收方姓名','收件人']);
-      ci.phone=fc(['收方手机','收件手机','手机']);ci.address=fc(['收件地址','收货地址','地址']);
-      ci.productCode=fc(['商品编码','商品编号','物料代码']);ci.productName=fc(['商品名称','物料名称']);
-      ci.qty=fc(['发货/出库数量','出库数量','发货数量','数量']);
-      ci.date=fc(['数据创建时间','创建时间','下单时间','日期']);
-      ci.warehouse=fcs(['仓库代码','仓库编码','仓库编号','发货仓库代码','所属仓库代码','收货仓库代码','仓库id']);
-      if(ci.warehouse<0)ci.warehouse=fcs(['仓库']);
+      const ci=sfMapCols(headers);
       if(ci.tracking<0){alert('未找到运单号列（支持：运单号 / 快递单号 / 物流单号）');return}
-      const onlyWH=ci.warehouse>=0;
-      if(!onlyWH&&!confirm('表头里没有找到「仓库代码」列，无法只导入 '+SF_WAREHOUSE+' 仓的订单。\n确定＝导入全部数据　取消＝放弃本次导入'))return;
+      // 一条识别列都没有时才需要用户确认是否全量导入
+      const canFilter=ci.warehouse>=0||ci.province>=0||ci.note>=0||ci.sender>=0||ci.address>=0;
+      if(!canFilter&&!confirm('表头里没有找到仓库代码、收件人省、备注、发件人、收件地址等识别列，无法只导入本分公司的单。\n确定＝导入全部数据　取消＝放弃本次导入'))return;
       let skippedWH=0,maskedN=0;
       sfData=[];
       for(let i=1;i<rows.length;i++){
         const row=rows[i];if(!row||!row.length)continue;
         const g=k=>ci[k]>=0?String(row[ci[k]]||'').trim():'';
         const tracking=g('tracking');if(!tracking)continue;
-        if(onlyWH&&g('warehouse').replace(/\s+/g,'').toUpperCase()!==SF_WAREHOUSE){skippedWH++;continue}
+        if(canFilter&&!sfIsMine(g,ci)){skippedWH++;continue}
         // 数量列缺失或该行留空 → 默认按 1 件计（顺丰回单常常不带数量，但每条记录至少是一件货）
         const q=parseFloat(g('qty'));
         const ph=g('phone');
@@ -2455,7 +2484,7 @@ function parseSF(file,orderTime,note){
         else sfData.push({tracking,name:g('name'),phone:ph,address:g('address'),productCode:g('productCode'),productName:g('productName'),qty:(ci.qty>=0&&!isNaN(q))?q:1,matchedStore:'',activity:''});
       }
       if(!sfData.length){
-        alert(onlyWH&&skippedWH?('文件里 '+skippedWH+' 条记录的仓库代码都不是 '+SF_WAREHOUSE+'，未导入任何数据'):'未读取到有效数据');
+        alert(canFilter&&skippedWH?('文件里 '+skippedWH+' 条记录都不符合本分公司的识别规则（仓库代码 '+SF_WAREHOUSE+' / 收件人省含「'+SF_PROVINCE+'」 / 备注、发件人含「'+SF_CONTACTS.join('、')+'」），未导入任何数据'):'未读取到有效数据');
         return
       }
       const ord=resolveOrderForUpload(orderTime||lastOrderTime,note||'');
@@ -2471,7 +2500,7 @@ function parseSF(file,orderTime,note){
       renderMatchInfo();renderPreview();updateSelCount();
       renderOrderSelect();
       renderDashboard();
-      addLog('导入顺丰回单 '+sfData.length+' 条'+(skippedWH?'（已过滤 '+skippedWH+' 条非'+SF_WAREHOUSE+'仓）':'')+'（'+orderLabel(ord)+'）');
+      addLog('导入顺丰回单 '+sfData.length+' 条'+(skippedWH?'（已过滤 '+skippedWH+' 条非本分公司单）':'')+'（'+orderLabel(ord)+'）');
       if(maskedN){
         const filled=sfData.filter(r=>!r.phone&&r.matchedStore&&DB.contacts.some(c=>c.storeName===r.matchedStore&&c.phone)).length;
         addLog('其中 '+maskedN+' 条手机号被打码，已按门店库补全 '+filled+' 条');
