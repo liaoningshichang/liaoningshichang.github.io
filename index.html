@@ -248,9 +248,16 @@ tr:hover{background:#f8f9fc}
 .rpt-sum{font-size:14px;margin-bottom:10px}
 .rpt-sum.rpt-title{font-size:17px;font-weight:700;color:#1a73e8;margin-bottom:8px;line-height:1.5}
 .rpt-sum.rpt-title b{font-size:19px}
-.rpt-logic{font-size:13px;color:#555;line-height:1.6;background:#f7f9fc;border-left:3px solid #1a73e8;border-radius:0 6px 6px 0;padding:7px 10px;margin:0 0 10px}
+.rpt-logic{font-size:13px;color:#555;line-height:1.6;background:#f7f9fc;border-left:3px solid #1a73e8;border-radius:0 6px 6px 0;padding:0;margin:0 0 10px}
+.rpt-logic summary{cursor:pointer;font-size:13px;color:#1a73e8;padding:7px 10px;list-style:none;user-select:none}
+.rpt-logic summary::-webkit-details-marker{display:none}
+.rpt-logic summary::before{content:'▸ '}
+.rpt-logic[open] summary::before{content:'▾ '}
+.rpt-logic summary:hover{text-decoration:underline}
+.rpt-logic-body{font-size:13px;color:#555;line-height:1.6;padding:0 10px 8px}
 .rpt-chip{display:inline-block;background:#fff3e0;color:#a05a00;border-radius:10px;padding:3px 9px;font-size:12px;margin:0 6px 6px 0}
 .rpt-warn{background:#fdecea;color:#c5221f;border-radius:6px;padding:8px 10px;font-size:13px;margin-bottom:8px}
+.rpt-warn-btn{margin-left:8px;vertical-align:middle;white-space:nowrap}
 .rpt-list{max-height:300px;overflow:auto;border:1px solid #eee;border-radius:8px}
 .rpt-list table{width:100%;min-width:560px;border-collapse:collapse;table-layout:fixed;font-size:12px}
 .rpt-list th{position:sticky;top:0;background:#f7f9fc;text-align:left;padding:7px 8px;color:#666;border-bottom:1px solid #eee;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -845,7 +852,10 @@ iframe[id^="sb__open-sandbox"]{display:none!important}
 <div class="modal-overlay" id="reportModal">
   <div class="modal" style="width:min(776px,96vw);max-width:776px">
     <div class="rpt-sum rpt-title" id="reportSummary"></div>
-    <p class="rpt-logic" data-lk="reportLogic">匹配逻辑：地址优先 —— 收件地址与门店地址归一化后打分（完全相等=100%，包含=60%~100%，公共尾段按占比给分），≥50% 才认；几家分数接近时用手机号区分；地址、手机号都不行时再看收件人姓名（只认唯一命中的那一家，多家重名不猜）；都不行才记为未匹配（原因见下表）。</p>
+    <details class="rpt-logic">
+      <summary data-lk="reportLogic">匹配规则：地址 → 手机号 → 收件人姓名，都不中才记为未匹配（点开看细节）</summary>
+      <div class="rpt-logic-body">匹配逻辑：地址优先 —— 收件地址与门店地址归一化后打分（完全相等=100%，包含=60%~100%，公共尾段按占比给分），≥50% 才认；几家分数接近时用手机号区分；地址、手机号都不行时再看收件人姓名（只认唯一命中的那一家，多家重名不猜）；都不行才记为未匹配（原因见下表）。</div>
+    </details>
     <div id="reportReasons"></div>
     <div class="rpt-list" id="reportList"></div>
     <div class="modal-actions">
@@ -2042,6 +2052,7 @@ function updateSelCount(){
 
 // ==================== 物流管理 ====================
 let sfData=[];
+let lastAddrWarn='';   // 最近一次导入的「地址列可能取错」警告，进报告弹窗时一并显示
 let sfYM='';
 let currentOrderId='';
 
@@ -2206,7 +2217,7 @@ const LABEL_DEFS=[
   ['chHistTitle','门店信息历史记录·标题','门店信息历史记录'],
   ['chHistHint','门店信息历史记录·说明','导入活动门店表后，店长改过的门店名称/收货人/收货电话/收货地址会记在这里，含信息来源和更新时间，旧值保留可追溯。'],
   ['chHistClose','门店信息历史记录·关闭按钮','关闭'],
-  ['reportLogic','导入报告·匹配逻辑说明','匹配逻辑：地址优先 —— 收件地址与门店地址归一化后打分（完全相等=100%，包含=60%~100%，公共尾段按占比给分），≥50% 才认；几家分数接近时用手机号区分；地址、手机号都不行时再看收件人姓名（只认唯一命中的那一家，多家重名不猜）；都不行才记为未匹配（原因见下表）。'],
+  ['reportLogic','导入报告·匹配规则摘要','匹配规则：地址 → 手机号 → 收件人姓名，都不中才记为未匹配（点开看细节）'],
   ['dashTitle','汇总页标题','月度活动汇总'],
   ['dashMonthLabel','「勾选活动查看」按钮','勾选活动查看'],
   ['dashPopLabel','勾选活动弹窗·标题','勾选要查看的活动（数据只统计勾选的活动）'],
@@ -2427,25 +2438,28 @@ const SF_PROVINCE='辽宁';         // 收件人省含此字；没有省列时�
 const SF_CONTACTS=['董雪'];       // 备注 / 发件人（寄件人）含任一关键字
 function sfMapCols(headers){
   const ci={};
+  // 寄件/发件方的列绝不能当成收件方用：回单表里两类列常常并排出现，
+  // 而「收件地址」一旦不在别名里，就会落到「地址」这个兜底别名被寄件地址抢走
+  const isSender=h=>/(寄件|发件|发货|寄方|起运|揽收)/.test(String(h||''))&&!/(收件|收货|收方|到货)/.test(String(h||''));
   const fc=ns=>headers.findIndex(h=>ns.some(n=>h.includes(n)));
   const fcs=ns=>{for(const n of ns){const i=headers.findIndex(h=>h.includes(n));if(i>=0)return i}return -1};
-  const fx=ns=>{for(const n of ns){const i=headers.findIndex(h=>String(h||'')===n);if(i>=0)return i}return -1};
-  ci.tracking=fc(['运单号','快递单号','物流单号','快递单','物流单']);ci.name=fc(['收方姓名','收件人']);
-  // 收件地址/收件电话按别名逐个找：寄件地址、寄件电话常常排在前面，
-  // 用「首列命中」会把寄件方的信息当成收件方的
-  ci.phone=fcs(['收方手机','收件手机','收件电话','收货电话','手机']);
-  ci.address=fcs(['收件地址','收货地址','地址']);
+  // 收件方专用：按别名顺序找、跳过寄件列、并挡住同列系的其它字段（如「收件人省」不能当成收件人姓名）
+  const pick=(ns,bad)=>{for(const n of ns){const i=headers.findIndex(h=>!isSender(h)&&!bad.test(String(h||''))&&h.includes(n));if(i>=0)return i}return -1};
+  ci.tracking=fc(['运单号','快递单号','物流单号','快递单','物流单']);
+  ci.name=pick(['收方姓名','收件人姓名','收货人姓名','收件人','收货人'],/省|地址|电话|手机|编码|编号/);
+  ci.phone=pick(['收方手机','收方电话','收件手机','收件电话','收货电话','收货手机','收件人手机','收货人电话','手机','电话'],/省|地址/);
+  ci.address=pick(['收方地址','收件地址','收货地址','收件方地址','收货方地址','到货地址','目的地','地址'],/省|电话|手机/);
   ci.productCode=fc(['商品编码','商品编号','物料代码']);ci.productName=fc(['商品名称','物料名称']);
   ci.qty=fc(['发货/出库数量','出库数量','发货数量','数量']);
   ci.date=fc(['数据创建时间','创建时间','下单时间','日期']);
   ci.warehouse=fcs(['仓库代码','仓库编码','仓库编号','发货仓库代码','所属仓库代码','收货仓库代码','省仓代码','省仓编号','仓库id']);
   if(ci.warehouse<0)ci.warehouse=fcs(['仓库']);
   // 收件人省：专用列优先 → 整列名恰为「省」→ 退到只含「省」且不是「省仓/仓库」的列
-  ci.province=fcs(['收件人省','收货人省','收件省份','收货省份','省份']);
-  if(ci.province<0)ci.province=fx(['省','所在省']);
-  if(ci.province<0)ci.province=headers.findIndex(h=>{const s=String(h||'');return s.includes('省')&&!s.includes('仓')&&!/代码|编码|名称/.test(s)});
+  ci.province=pick(['收件人省','收货人省','收件省份','收货省份','收方省','省份'],/地址|电话|手机/);
+  if(ci.province<0)ci.province=headers.findIndex(h=>!isSender(h)&&['省','所在省'].indexOf(String(h||''))>=0);
+  if(ci.province<0)ci.province=headers.findIndex(h=>{const s=String(h||'');return !isSender(h)&&s.includes('省')&&!s.includes('仓')&&!/代码|编码|名称/.test(s)});
   ci.note=fcs(['备注','订单备注','备注信息','附言']);
-  ci.sender=fcs(['发件人','寄件人','发货人','发件方','寄件方']);
+  ci.sender=fcs(['发件人','寄件人','发货人','发件方','寄件方']);  // 这里故意要寄件方（按关键字识别本分公司的单）
   return ci;
 }
 function sfIsMine(g,ci){
@@ -2493,6 +2507,14 @@ function parseSF(file,orderTime,note){
       const ord=resolveOrderForUpload(orderTime||lastOrderTime,note||'');
       const ot=ord.orderTime||orderTime||lastOrderTime||'';
       sfYM=ot?ot.slice(0,7):detectYM(rows,ci,currentYM());
+      // 自检：地址列取错的典型症状是「绝大多数行地址一模一样」，多半抓成了寄件地址
+      lastAddrWarn='';
+      if(sfData.length>=5&&ci.address>=0){
+        const cnt={};
+        for(const r of sfData){const a=String(r.address||'').trim();if(a)cnt[a]=(cnt[a]||0)+1}
+        const top=Object.keys(cnt).map(k=>[k,cnt[k]]).sort((a,b)=>b[1]-a[1])[0];
+        if(top&&top[1]>=sfData.length*0.8)lastAddrWarn='⚠ '+sfData.length+' 条里 '+top[1]+' 条地址完全一样，取的是「'+String(headers[ci.address]||'').trim()+'」列 —— 可能是寄件地址，先核对回单表列名';
+      }
       clearPFilters();
       matchAll();
       persistSf();
@@ -2509,6 +2531,7 @@ function parseSF(file,orderTime,note){
         addLog('其中 '+maskedN+' 条手机号被打码，已按门店库补全 '+filled+' 条');
         flashTip('⚠️ '+maskedN+' 条手机号被打码（如 138****1234），已按门店库补全'+(filled?' '+filled+' 条':'')+'；未补全的请到门店信息页核对',4200);
       }
+      if(lastAddrWarn){addLog(lastAddrWarn);flashTip(lastAddrWarn,6500)}
       if(!openMatActModal())finishImportReport();
     }catch(err){alert('解析失败：'+err.message)}
   };
@@ -2826,8 +2849,9 @@ function openMatchReport(){
     '共 <b>'+total+'</b> 条，已匹配 <b style="color:#188038">'+(total-un.length)+'</b> 条，<b style="color:#c5221f">未匹配 '+un.length+'</b> 条';
   const noAddr=DB.contacts.filter(c=>!normAddr(c.address)).length;
   const warns=[];
+  if(lastAddrWarn)warns.push('<div class="rpt-warn">'+esc(lastAddrWarn)+'</div>');
   if(!DB.contacts.length)warns.push('<div class="rpt-warn">门店信息库还是空的，没有门店可匹配 —— 请先到「门店信息」页导入门店数据。</div>');
-  else if(noAddr)warns.push('<div class="rpt-warn">门店库 <b>'+DB.contacts.length+'</b> 家里有 <b>'+noAddr+'</b> 家没填收货地址，这些店只能靠手机号匹配，手机号一变就会漏 —— 建议去「门店信息」补地址。</div>');
+  else if(noAddr)warns.push('<div class="rpt-warn">门店库 <b>'+DB.contacts.length+'</b> 家中 <b>'+noAddr+'</b> 家缺收货地址，只能靠手机号匹配，号码一变就漏<button class="btn btn-gray btn-sm rpt-warn-btn" onclick="closeModal(\'reportModal\');switchTab(\'contacts\')">去补地址</button></div>');
   document.getElementById('reportReasons').innerHTML=warns.join('');
   const colg='<colgroup><col class="c-track"><col class="c-name"><col class="c-phone"><col><col class="c-reason"><col class="c-pick"></colgroup>';
   const head='<thead><tr><th>运单号</th><th>收件人</th><th>手机号</th><th>收件地址（点击展开）</th><th>未匹配原因</th><th>最接近的门店（点一下即采用）</th></tr></thead>';
