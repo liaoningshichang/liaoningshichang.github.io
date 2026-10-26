@@ -524,6 +524,7 @@ iframe[id^="sb__open-sandbox"]{display:none!important}
       </div>
       <datalist id="storeOpts"></datalist>
       <datalist id="matOpts"></datalist>
+      <datalist id="actOpts"></datalist>
 
       <div class="toolbar">
         <button class="btn btn-gray" data-lk="btnClearOrder" onclick="clearImport()">清空当前单数据</button>
@@ -3243,6 +3244,7 @@ function renderStoreOpts(){
   document.getElementById('storeOpts').innerHTML=DB.contacts.map(c=>`<option value="${esc(c.storeName)}"></option>`).join('');
 }
 
+let pvHtmlCache='';   // 预览表上次渲染的 HTML：没变就跳过重建（见 renderPreview 末尾）
 function renderPreview(){
   const body=document.getElementById('previewBody');
   const acts=DB.activities;
@@ -3250,12 +3252,16 @@ function renderPreview(){
   renderMatOpts();
   const orphanActs=[...new Set(sfData.map(r=>r.activity).filter(Boolean))].filter(n=>!acts.some(a=>a.name===n));
   const allActs=[...acts,...orphanActs.map(n=>({name:n}))];
-  // 「＋ 新建活动…」固定第一行，选中它弹出活动管理弹窗；其余为已有活动（已删除的活动标黄显示）
-  const actOpts='<option value="__NEW__">＋ 新建活动…</option><option value="">-- 选择 --</option>'+allActs.map(a=>`<option value="${esc(a.name)}"${orphanActs.includes(a.name)?' style="color:#f9ab00"':''}>${esc(a.name)}${orphanActs.includes(a.name)?'（已删除）':''}</option>`).join('');
+  // 活动选项放进共享 datalist，每行只放一个 <input list="actOpts">，和隔壁「物料名称」「匹配门店」一致。
+  // 原来每行一套 <select>：3630 行 = 3.6 万个 <option>、2.5MB HTML，浏览器解析+排版几百毫秒，是全系统最卡的地方。
+  // 「＋ 新建活动…」值仍是 __NEW__，change 里原逻辑照常弹活动管理弹窗；删掉文本即清空活动。
+  const actOpts='<option value="__NEW__">＋ 新建活动…</option>'+allActs.map(a=>`<option value="${esc(a.name)}"${orphanActs.includes(a.name)?' style="color:#f9ab00"':''}>${esc(a.name)}${orphanActs.includes(a.name)?'（已删除）':''}</option>`).join('');
+  const actDl=document.getElementById('actOpts');
+  if(actDl&&actDl.innerHTML!==actOpts)actDl.innerHTML=actOpts;
 
   const activeCols=Object.keys(pFilters);
   let shown=0;
-  body.innerHTML=sfData.map((r,i)=>{
+  const built=sfData.map((r,i)=>{
     if(activeCols.length){
       for(const col of activeCols){
         if(!pFilters[col].has(pfKey(pfColVal(r,col))))return '';
@@ -3276,14 +3282,16 @@ function renderPreview(){
         <input list="storeOpts" data-f="matchedStore" data-i="${i}" value="${esc(r.matchedStore)}" placeholder="选择或输入门店" style="font-size:12px;padding:5px 6px">
       </td>
       <td>
-        <select data-f="activity" data-i="${i}">${actOpts.replace(`value="${esc(r.activity)}"`,`value="${esc(r.activity)}" selected`)}</select>
+        <input list="actOpts" data-f="activity" data-i="${i}" value="${esc(r.activity)}" placeholder="选择或输入活动" style="font-size:12px;padding:5px 6px">
       </td>
       <td>${st}</td>
     </tr>`;
   }).join('');
-  if(!shown&&sfData.length){
-    body.innerHTML='<tr><td colspan="10"><div class="empty">当前筛选无匹配数据</div></td></tr>';
-  }
+  const finalHtml=(!shown&&sfData.length)?'<tr><td colspan="10"><div class="empty">当前筛选无匹配数据</div></td></tr>':built;
+  // 这张表是全系统的性能瓶颈：3630 行约 2.5MB HTML / 3.6 万个 <option>（活动下拉每行一套），
+  // 浏览器解析 + 排版要几百毫秒。而切标签页、改一格、刷新统计都会走这里。
+  // 内容没变就不要重建 DOM —— 重新赋 innerHTML 才是慢的那一步，拼字符串只有几毫秒。
+  if(pvHtmlCache!==finalHtml){body.innerHTML=finalHtml;pvHtmlCache=finalHtml}
   // 预览表是物流管理的主表，任何入口（导入/匹配/改格/切单）都会走这里，统一在这里挂拖拽把手并还原列宽
   initColResizeAll();
 }
