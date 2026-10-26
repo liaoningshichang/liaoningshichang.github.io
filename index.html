@@ -150,7 +150,7 @@ tr:hover{background:#f8f9fc}
 /* 物流查询（店长自查） */
 .q-stat{font-size:13px;color:#5f6368;margin:2px 0 14px;min-height:20px}
 .q-stat b{color:#1a73e8;font-size:15px}
-.q-table{width:100%;min-width:560px;border-collapse:collapse;background:#fff}
+.q-table{width:100%;min-width:960px;border-collapse:collapse;background:#fff}
 .q-table th{background:#f8f9fa;font-size:12px;font-weight:600;color:#5f6368;padding:8px 10px;text-align:left;border-bottom:2px solid #e0e0e0;white-space:nowrap}
 .q-table td{font-size:13px;padding:7px 10px;border-bottom:1px solid #eee;vertical-align:top}
 .q-table tbody tr:hover{background:#f5f9ff}
@@ -643,7 +643,7 @@ iframe[id^="sb__open-sandbox"]{display:none!important}
     <div class="toolbar" style="flex-wrap:wrap;gap:10px">
       <h3 style="margin-right:auto;font-size:15px" data-lk="queryTitle">店长自查 · 物流查询</h3>
     </div>
-    <p class="hint" style="margin:0 0 12px" data-lk="queryHintTop">输入【收件手机号】就能查到你名下所有物料的物流单号、件数和所属活动。手机号填不全没关系，后 4 位也能查。记不住手机号就直接输【姓名】或【门店名称】。</p>
+    <p class="hint" style="margin:0 0 12px" data-lk="queryHintTop">输入【收件手机号】就能查到你名下所有物料的全部信息。手机号填不全没关系，后 4 位也能查；记不住手机号就直接输【姓名】或【门店名称】。表格列和飞书多维表格完全一致（物料名称 / 所属活动 / 数量 / 快递单号 / 门店代码 / 门店名称 / 收件人姓名 / 收件电话 / 收货地址），可直接复制粘贴进飞书。</p>
     <div class="toolbar" style="flex-wrap:wrap;gap:10px">
       <input type="text" class="search-box" id="qKey" style="min-width:320px;max-width:520px"
              placeholder="收件手机号 / 姓名 / 门店名称"
@@ -1726,6 +1726,25 @@ document.getElementById('cBulkFile').addEventListener('change',function(e){
   reader.readAsArrayBuffer(file);e.target.value='';
 });
 
+// ==================== 飞书多维表格列定义（查询页 / 导出CSV 共用） ====================
+// 列名和列顺序必须和飞书多维表格完全一致，改这里就同时改两处，避免查询页和导出对不上。
+const PV_EXPORT_COLS=[
+  ['物料名称',   r=>r.productName],
+  ['所属活动',   r=>r.activity],
+  ['数量',       r=>r.qty],
+  ['快递单号',   r=>r.tracking],
+  ['门店代码',   r=>storeCodeOf(r.matchedStore)||r.storeCode||''],
+  ['门店名称',   r=>r.matchedStore],
+  ['收件人姓名', r=>r.name],
+  ['收件电话',   r=>phoneOrStore(r)],
+  ['收货地址',   r=>r.address]
+];
+function pvExportRow(r){
+  const o={};
+  for(const [h,fn] of PV_EXPORT_COLS){const v=fn(r);o[h]=(v==null?'':v)}
+  return o;
+}
+
 // ==================== 物流查询（店长自查） ====================
 // 只读查询：跨所有物流单，按手机号/姓名/门店名模糊匹配，返回全部运单号
 function queryClear(){
@@ -1748,7 +1767,7 @@ function queryTrack(){
       const hit=ph.toLowerCase().indexOf(kw)>=0||raw.toLowerCase().indexOf(kw)>=0||
                 nm.toLowerCase().indexOf(kw)>=0||st.toLowerCase().indexOf(kw)>=0;
       if(!hit)return;
-      hits.push({t:String(r.tracking||''),p:String(r.productName||''),q:r.qty,s:st,a:String(r.activity||'')});
+      hits.push({tk:String(r.tracking||''),r:r});
     });
   });
   if(!hits.length){
@@ -1757,13 +1776,21 @@ function queryTrack(){
     if(stat)stat.textContent='';
     return;
   }
-  hits.sort((x,y)=>String(x.t).localeCompare(String(y.t)));
-  const tracks={};hits.forEach(x=>{if(x.t)tracks[x.t]=1});
-  let qty=0;hits.forEach(x=>{const n=parseFloat(x.q);if(isFinite(n))qty+=n});
+  hits.sort((x,y)=>x.tk.localeCompare(y.tk));
+  const tracks={};hits.forEach(x=>{if(x.tk)tracks[x.tk]=1});
+  let qty=0;hits.forEach(x=>{const n=parseFloat(x.r.qty);if(isFinite(n))qty+=n});
   if(stat)stat.innerHTML='「<b>'+esc(k)+'</b>」共 <b>'+Object.keys(tracks).length+'</b> 个运单 · <b>'+hits.length+'</b> 行物料 · <b>'+fmtNum(qty)+'</b> 件';
-  const rows=hits.map(x=>'<tr><td class="q-track">'+esc(x.t)+'</td><td>'+esc(x.p)+'</td><td class="q-num">'+esc(x.q==null?'':x.q)+'</td><td>'+esc(x.s)+'</td><td>'+esc(x.a)+'</td></tr>').join('');
+  // 表头/取值完全照 PV_EXPORT_COLS 走，和导出进飞书多维表格的那份一一对应
+  const heads=PV_EXPORT_COLS.map(c=>c[0]);
+  const rows=hits.map(x=>{
+    const o=pvExportRow(x.r);
+    return '<tr>'+heads.map(h=>{
+      const cls=h==='数量'?' class="q-num"':(h==='快递单号'?' class="q-track"':'');
+      return '<td'+cls+'>'+esc(o[h])+'</td>';
+    }).join('')+'</tr>';
+  }).join('');
   const host=document.getElementById('qResult');
-  if(host)host.innerHTML='<table class="q-table"><thead><tr><th>运单号</th><th>物料名称</th><th>数量</th><th>匹配门店</th><th>礼品所属活动</th></tr></thead><tbody>'+rows+'</tbody></table>';
+  if(host)host.innerHTML='<table class="q-table"><thead><tr>'+heads.map(h=>'<th>'+esc(h)+'</th>').join('')+'</tr></thead><tbody>'+rows+'</tbody></table>';
   if(box)box.style.display='';
   if(empty)empty.style.display='none';
 }
@@ -2389,7 +2416,7 @@ const LABEL_DEFS=[
   ['tabDashboard','「月度活动汇总」标签页','月度活动汇总'],
   ['tabContacts','「门店信息」标签页','门店信息'],
   ['queryTitle','物流查询页标题','店长自查 · 物流查询'],
-  ['queryHintTop','物流查询页说明','输入【收件手机号】就能查到你名下所有物料的物流单号、件数和所属活动。手机号填不全没关系，后 4 位也能查。记不住手机号就直接输【姓名】或【门店名称】。'],
+  ['queryHintTop','物流查询页说明','输入【收件手机号】就能查到你名下所有物料的全部信息。手机号填不全没关系，后 4 位也能查；记不住手机号就直接输【姓名】或【门店名称】。表格列和飞书多维表格完全一致（物料名称 / 所属活动 / 数量 / 快递单号 / 门店代码 / 门店名称 / 收件人姓名 / 收件电话 / 收货地址），可直接复制粘贴进飞书。'],
   ['queryHint','物流查询页默认提示','输入手机号就能查到你名下所有物流单号'],
   ['btnQueryGo','物流查询页「查询」按钮','查询'],
   ['btnQueryClear','物流查询页「清空」按钮','清空'],
@@ -3659,7 +3686,8 @@ document.addEventListener('paste',e=>{
 // ==================== 导出CSV ====================
 function exportCSV(){
   if(!sfData.length){alert('暂无数据');return}
-  const headers=['物料名称','所属活动','数量','快递单号','门店代码','门店名称','收件人姓名','收件电话','收货地址'];
+  // 列名/列顺序取自 PV_EXPORT_COLS —— 和飞书多维表格、和「物流查询」页是同一份定义
+  const headers=PV_EXPORT_COLS.map(c=>c[0]);
   let csv=headers.join(',')+'\n';
   const cell=v=>{
     let s=(v===undefined||v===null)?'':String(v);
@@ -3667,7 +3695,7 @@ function exportCSV(){
     return s.includes(',')||s.includes('"')||s.includes('\n')?'"'+s.replace(/"/g,'""')+'"':s;
   };
   for(const r of sfData){
-    const row={'物料名称':r.productName,'所属活动':r.activity,'数量':r.qty,'快递单号':r.tracking,'门店代码':storeCodeOf(r.matchedStore)||r.storeCode||'','门店名称':r.matchedStore,'收件人姓名':r.name,'收件电话':phoneOrStore(r),'收货地址':r.address};
+    const row=pvExportRow(r);
     csv+=headers.map(h=>cell(row[h])).join(',')+'\n';
   }
   const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});
