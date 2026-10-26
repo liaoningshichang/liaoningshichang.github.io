@@ -301,6 +301,9 @@ tr:hover{background:#f8f9fc}
 .pager button{padding:4px 12px;border:1px solid #ddd;border-radius:4px;background:#fff;cursor:pointer;font-size:13px}
 .pager button:hover{border-color:#1a73e8;color:#1a73e8}
 .pager button:disabled{opacity:.4;cursor:default}
+.pager .pg-txt{margin:0 8px;font-variant-numeric:tabular-nums}
+.pager .pg-hint{margin-left:10px;font-size:12px;color:#888}
+.pager .btn-sm{padding:4px 12px}
 .cb-col{text-align:center;width:32px}
 /* 选区：选中的格子连成一块连续的浅蓝填充，最外圈画闭合的 2px 蓝框。
    画法（前两版的教训）：
@@ -522,6 +525,7 @@ iframe[id^="sb__open-sandbox"]{display:none!important}
           <tbody id="previewBody" onclick="handlePreviewClick(event)"></tbody>
         </table>
       </div>
+      <div class="pager" id="previewPager"></div>
       <datalist id="storeOpts"></datalist>
       <datalist id="matOpts"></datalist>
       <datalist id="actOpts"></datalist>
@@ -1258,7 +1262,7 @@ function cleanPhone(s){
 function phoneOrStore(r){
   const p=String(r.phone||'');
   if(p&&!maskedPhone(p))return p;
-  const c=r.matchedStore?DB.contacts.find(x=>x.storeName===r.matchedStore):null;
+  const c=r.matchedStore?contactMap().get(r.matchedStore):null;
   return (c&&c.phone)||'';
 }
 // 地址归一化 + 打分：门店地址稳定、收件手机号常变，所以匹配以地址为准
@@ -2121,14 +2125,10 @@ function batchApplyActivity(){
   const sel=document.getElementById('batchActSelect');
   const actName=sel.value;
   if(!actName){alert('请先选择活动');return}
-  const checked=[...document.querySelectorAll('.p-cb:checked')];
-  if(!checked.length){alert('请先勾选要应用的行');return}
-  const idx=[];
-  checked.forEach(cb=>{
-    const i=parseInt(cb.dataset.i);
-    if(sfData[i]){sfData[i].activity=actName;idx.push(i)}
-  });
-  addLog('批量设置活动「'+actName+'」到 '+checked.length+' 条');
+  const idx=pvSelected();
+  if(!idx.length){alert('请先勾选要应用的行');return}
+  idx.forEach(i=>{if(sfData[i])sfData[i].activity=actName});
+  addLog('批量设置活动「'+actName+'」到 '+idx.length+' 条');
   persistSf();
   renderOrderSelect();
   renderDashboard();
@@ -2144,7 +2144,12 @@ function matNamePool(){
 }
 function renderMatOpts(){
   const el=document.getElementById('matOpts');
-  if(el)el.innerHTML=matNamePool().map(n=>`<option value="${esc(n)}"></option>`).join('');
+  if(!el)return;
+  const pool=matNamePool();
+  const sig=pool.join('\u0001');
+  if(_moSig===sig)return;
+  el.innerHTML=pool.map(n=>`<option value="${esc(n)}"></option>`).join('');
+  _moSig=sig;
 }
 function refreshBatchMatSelect(){
   const sel=document.getElementById('batchMatSelect');
@@ -2218,27 +2223,30 @@ function saveMatQuick(){
 function batchApplyMaterial(){
   const v=document.getElementById('batchMatSelect').value;
   if(!v){alert('请先选择物料名称');return}
-  const checked=[...document.querySelectorAll('.p-cb:checked')];
-  if(!checked.length){alert('请先勾选要应用的行');return}
-  const idx=[];
-  checked.forEach(cb=>{const i=parseInt(cb.dataset.i);if(sfData[i]){sfData[i].productName=v;idx.push(i)}});
-  addLog('批量设置物料「'+v+'」到 '+checked.length+' 条');
+  const idx=pvSelected();
+  if(!idx.length){alert('请先勾选要应用的行');return}
+  idx.forEach(i=>{if(sfData[i])sfData[i].productName=v});
+  addLog('批量设置物料「'+v+'」到 '+idx.length+' 条');
   persistSf();
   renderOrderSelect();
   refreshBatchMatSelect();
   pvRender(idx);
-  flashTip('✓ '+checked.length+' 行物料已改为「'+v+'」',1800);
+  flashTip('✓ '+idx.length+' 行物料已改为「'+v+'」',1800);
 }
 
+// 勾选状态存在 pvChecked（绝对行号），翻页/筛选后仍然保留 —— 批量设活动/物料支持跨页勾选。
+// 全选/取消全选只作用于当前页，避免误把几千行一次改掉。
 function toggleCheckAll(checked){
-  document.querySelectorAll('.p-cb').forEach(cb=>cb.checked=checked);
+  pvPageIdx.forEach(i=>{if(checked)pvChecked.add(i);else pvChecked.delete(i)});
+  document.querySelectorAll('#previewBody .p-cb').forEach(cb=>cb.checked=checked);
   updateSelCount();
 }
 function updateSelCount(){
-  const n=document.querySelectorAll('.p-cb:checked').length;
-  document.getElementById('selCount').textContent=n?`已选 ${n} 条`:'';
+  const n=pvChecked.size;
+  const el=document.getElementById('selCount');
+  if(el)el.textContent=n?`已选 ${n} 条`+(pvPageIdx.length&&pvPageIdx.some(i=>!pvChecked.has(i))?'（含其他页）':''):'';
   const ca=document.getElementById('checkAll2');
-  if(ca){const all=document.querySelectorAll('.p-cb').length;ca.checked=all>0&&n===all}
+  if(ca){const all=pvPageIdx.length;ca.checked=all>0&&pvPageIdx.every(i=>pvChecked.has(i))}
 }
 
 // ==================== 物流管理 ====================
@@ -3140,9 +3148,26 @@ function rematchFromReport(){
 const pFilters={};
 let xfPop=null;
 
+// 门店名 → 门店 的索引。
+// DB.contacts 是个 getter，**每次访问都重新 JSON.parse 整份门店表**。
+// 而 storeCodeOf / phoneOrStore 在渲染物流表时每行各调一次 —— 3630 行 × 2 次
+// = 7000 多次解析 100KB 的门店 JSON + 线性扫描，这才是拼 HTML 慢的主因（不是 innerHTML）。
+// 这里按 localStorage 原始串做缓存：串没变就直接用索引，O(1) 取值。
+let _cMap=null,_cMapSrc=null;
+function contactMap(){
+  let raw='';
+  try{raw=localStorage.getItem('lg2_contacts')||''}catch(e){raw=''}
+  if(_cMap&&_cMapSrc===raw)return _cMap;
+  let list=[];
+  try{list=JSON.parse(raw||'[]')||[]}catch(e){list=[]}
+  const m=new Map();
+  list.forEach(c=>{if(c&&c.storeName!=null&&!m.has(c.storeName))m.set(c.storeName,c)});
+  _cMap=m;_cMapSrc=raw;
+  return m;
+}
 function storeCodeOf(name){
   if(!name)return '';
-  const c=DB.contacts.find(x=>x.storeName===name);
+  const c=contactMap().get(name);
   return c?(c.storeCode||''):'';
 }
 function pfColVal(r,col){
@@ -3157,7 +3182,7 @@ function pfLabel(col,k){
   if(k!=='__BLANK__')return k;
   return (col==='matchedStore'||col==='storeCode')?'（空白 · 未匹配）':'（空白）';
 }
-function clearPFilters(){for(const k in pFilters)delete pFilters[k];trackPendingOnly=false;updateFilterMarks()}
+function clearPFilters(){for(const k in pFilters)delete pFilters[k];trackPendingOnly=false;pvPage=1;updateFilterMarks()}
 
 function updateFilterMarks(){
   document.querySelectorAll('#previewHead th[data-col]').forEach(th=>{
@@ -3240,11 +3265,32 @@ document.querySelectorAll('#previewHead th[data-col]').forEach(th=>{
   th.addEventListener('click',e=>toggleXFilter(e,th.dataset.col));
 });
 
+// 这两个 datalist 每次渲染物流表都会重建一次（renderStoreOpts 单次实测 307ms / 500 个选项），
+// 而门店表和物料池没变时完全没必要重建。按数据源签名缓存。
+let _soSig=null,_moSig=null;
 function renderStoreOpts(){
-  document.getElementById('storeOpts').innerHTML=DB.contacts.map(c=>`<option value="${esc(c.storeName)}"></option>`).join('');
+  const el=document.getElementById('storeOpts');
+  if(!el)return;
+  let raw='';
+  try{raw=localStorage.getItem('lg2_contacts')||''}catch(e){raw=''}
+  if(_soSig===raw)return;
+  let list=[];
+  try{list=JSON.parse(raw||'[]')||[]}catch(e){list=[]}
+  el.innerHTML=list.map(c=>`<option value="${esc(c.storeName)}"></option>`).join('');
+  _soSig=raw;
 }
 
 let pvHtmlCache='';   // 预览表上次渲染的 HTML：没变就跳过重建（见 renderPreview 末尾）
+let pvPage=1,pvPageSize=200;
+const pvChecked=new Set();   // 勾选的是「绝对行号」，翻页/筛选后仍然保留
+let pvPageIdx=[];            // 当前页显示的绝对行号（全选/取消只作用于这些）
+function pvPageGo(p){pvPage=p;pvHtmlCache='';renderPreview()}
+function pvToggleRow(cb){
+  const i=parseInt(cb.dataset.i,10);
+  if(!isNaN(i)){if(cb.checked)pvChecked.add(i);else pvChecked.delete(i)}
+  updateSelCount();
+}
+function pvResetView(){pvPage=1;pvChecked.clear();pvPageIdx=[];pvHtmlCache=''}
 function renderPreview(){
   const body=document.getElementById('previewBody');
   const acts=DB.activities;
@@ -3259,19 +3305,33 @@ function renderPreview(){
   const actDl=document.getElementById('actOpts');
   if(actDl&&actDl.innerHTML!==actOpts)actDl.innerHTML=actOpts;
 
+  // 先算出「通过筛选的绝对行号」，再只渲染当前页 ——
+  // 3630 行全塞进 DOM 是 3.3MB / 5.8 万个节点，浏览器每次解析排版都要几百毫秒；
+  // 分页后每页 200 行，冷渲染也只要几十毫秒。勾选状态在 pvChecked 里按绝对行号存，翻页不丢。
   const activeCols=Object.keys(pFilters);
-  let shown=0;
-  const built=sfData.map((r,i)=>{
+  const vis=[];
+  for(let i=0;i<sfData.length;i++){
+    const r=sfData[i];
     if(activeCols.length){
+      let ok=true;
       for(const col of activeCols){
-        if(!pFilters[col].has(pfKey(pfColVal(r,col))))return '';
+        if(!pFilters[col].has(pfKey(pfColVal(r,col)))){ok=false;break}
       }
+      if(!ok)continue;
     }
-    shown++;
+    vis.push(i);
+  }
+  const total=vis.length;
+  const pages=Math.max(1,Math.ceil(total/pvPageSize));
+  if(pvPage>pages)pvPage=pages;
+  if(pvPage<1)pvPage=1;
+  pvPageIdx=vis.slice((pvPage-1)*pvPageSize,pvPage*pvPageSize);
+  const built=pvPageIdx.map(i=>{
+    const r=sfData[i];
     const st=r.matchedStore?'<span class="badge badge-green">已匹配</span>':'<span class="badge badge-red">未匹配</span>';
     const code=storeCodeOf(r.matchedStore);
     return `<tr data-i="${i}">
-      <td class="cb-col"><input type="checkbox" class="p-cb" data-i="${i}" onchange="updateSelCount()"></td>
+      <td class="cb-col"><input type="checkbox" class="p-cb" data-i="${i}"${pvChecked.has(i)?' checked':''} onchange="pvToggleRow(this)"></td>
       <td style="font-family:monospace;font-size:11px;white-space:nowrap">${esc(r.tracking)}</td>
       <td><input data-f="productName" data-i="${i}" list="matOpts" value="${esc(r.productName)}" placeholder="物料名称" style="font-size:12px;padding:5px 6px"></td>
       <td style="text-align:center">${r.qty}</td>
@@ -3287,11 +3347,19 @@ function renderPreview(){
       <td>${st}</td>
     </tr>`;
   }).join('');
-  const finalHtml=(!shown&&sfData.length)?'<tr><td colspan="10"><div class="empty">当前筛选无匹配数据</div></td></tr>':built;
-  // 这张表是全系统的性能瓶颈：3630 行约 2.5MB HTML / 3.6 万个 <option>（活动下拉每行一套），
-  // 浏览器解析 + 排版要几百毫秒。而切标签页、改一格、刷新统计都会走这里。
+  const finalHtml=(!total&&sfData.length)?'<tr><td colspan="10"><div class="empty">当前筛选无匹配数据</div></td></tr>':built;
   // 内容没变就不要重建 DOM —— 重新赋 innerHTML 才是慢的那一步，拼字符串只有几毫秒。
   if(pvHtmlCache!==finalHtml){body.innerHTML=finalHtml;pvHtmlCache=finalHtml}
+  // 分页条
+  const pg=document.getElementById('previewPager');
+  if(pg){
+    pg.innerHTML=(total>pvPageSize)
+      ?`<button class="btn btn-gray btn-sm" ${pvPage<=1?'disabled':''} onclick="pvPageGo(${pvPage-1})">上一页</button>
+        <span class="pg-txt">${pvPage} / ${pages}（共 ${total} 行）</span>
+        <button class="btn btn-gray btn-sm" ${pvPage>=pages?'disabled':''} onclick="pvPageGo(${pvPage+1})">下一页</button>
+        <span class="pg-hint">每页 ${pvPageSize} 行${pvChecked.size?' · 已勾选 '+pvChecked.size+' 条（跨页保留）':''}</span>`
+      :(pvChecked.size?`<span class="pg-hint">已勾选 ${pvChecked.size} 条</span>`:'');
+  }
   // 预览表是物流管理的主表，任何入口（导入/匹配/改格/切单）都会走这里，统一在这里挂拖拽把手并还原列宽
   initColResizeAll();
 }
@@ -3364,7 +3432,7 @@ function handlePreviewClick(){}
 
 function clearImport(){
   if(sfData.length&&!confirm('清空当前物流订单的数据？（订单保留为空）'))return;
-  sfData=[];clearPFilters();
+  sfData=[];pvResetView();clearPFilters();
   persistSf();
   document.getElementById('importResult').style.display='none';
   document.getElementById('batchRow').style.display='none';
@@ -3377,12 +3445,7 @@ function clearImport(){
 const PV_COLS=[['tracking','运单号'],['productName','物料名称'],['qty','数量'],['name','收方姓名'],['phone','收方手机'],['matchedStore','匹配门店'],['activity','礼品所属活动']];
 
 function pvSelected(){
-  const out=[];
-  document.querySelectorAll('#previewBody .p-cb:checked').forEach(cb=>{
-    const i=parseInt(cb.dataset.i);
-    if(sfData[i])out.push(i);
-  });
-  return out.sort((a,b)=>a-b);
+  return [...pvChecked].filter(i=>sfData[i]!=null).sort((a,b)=>a-b);
 }
 function pvHeaderLine(){return PV_COLS.map(c=>c[1]).join('\t')}
 function pvLine(r){
@@ -3394,13 +3457,10 @@ function pvLine(r){
   }).join('\t');
 }
 function pvRender(keepSel){
+  // 勾选记在 pvChecked（绝对行号），先落进去再渲染 ——
+  // 这样被改的行即使被翻到别的页，勾选也不会丢
+  if(keepSel&&keepSel.length)keepSel.forEach(i=>{if(sfData[i]!=null)pvChecked.add(i)});
   renderPreview();
-  if(keepSel&&keepSel.length){
-    keepSel.forEach(i=>{
-      const cb=document.querySelector('#previewBody .p-cb[data-i="'+i+'"]');
-      if(cb)cb.checked=true;
-    });
-  }
   updateSelCount();
 }
 function pvAfterChange(keepSel){
@@ -3427,6 +3487,7 @@ function pvDelete(){
   if(!confirm('删除选中的 '+idx.length+' 条记录？'))return;
   const drop=new Set(idx);
   sfData=sfData.filter((_,i)=>!drop.has(i));
+  pvChecked.clear();   // 行号整体前移，旧勾选已对不上
   persistSf();
   pvAfterChange();
   addLog('删除 '+idx.length+' 条物流记录');
@@ -5304,6 +5365,7 @@ ensureOrderCodes();
 try{currentOrderId=localStorage.getItem('lg2_current_order')||''}catch(e){}
 loadDashSel();
 function restoreSfView(){
+  pvResetView();   // 换单/重载数据：页码和勾选都是上一单的行号，必须清掉
   const orders=DB.orders;
   let ord=currentOrderId?orders.find(o=>o.id===currentOrderId):null;
   if(!ord&&orders.length){
