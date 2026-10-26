@@ -147,6 +147,15 @@ tr:hover{background:#f8f9fc}
 .cross-table h4{font-size:14px;color:#333;margin-bottom:12px;font-weight:600}
 .cross-table h4 .tmark{display:inline-block;width:4px;height:11px;border-radius:2px;margin-right:4px;vertical-align:-1px}
 .cross-table table{font-size:12px}
+/* 物流查询（店长自查） */
+.q-stat{font-size:13px;color:#5f6368;margin:2px 0 14px;min-height:20px}
+.q-stat b{color:#1a73e8;font-size:15px}
+.q-table{width:100%;min-width:560px;border-collapse:collapse;background:#fff}
+.q-table th{background:#f8f9fa;font-size:12px;font-weight:600;color:#5f6368;padding:8px 10px;text-align:left;border-bottom:2px solid #e0e0e0;white-space:nowrap}
+.q-table td{font-size:13px;padding:7px 10px;border-bottom:1px solid #eee;vertical-align:top}
+.q-table tbody tr:hover{background:#f5f9ff}
+.q-table td.q-track{font-family:ui-monospace,Menlo,monospace;white-space:nowrap}
+.q-table td.q-num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
 #crossTable table{width:max-content;min-width:100%}
 #crossTable th.x-total{background:#f1f3f4;color:#5f6368;font-weight:600}
 #crossTable td:nth-child(2){font-weight:600;color:#202124}
@@ -196,7 +205,9 @@ tr:hover{background:#f8f9fc}
 .modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
 /* 上传后：按物料设置所属活动 */
 .mat-act-list{max-height:46vh;overflow:auto;border:1px solid #eee;border-radius:8px;padding:0 10px}
-.mat-act-row{display:grid;grid-template-columns:1.1fr 1.5fr .95fr .95fr;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid #f4f4f4}
+.mat-act-row{display:grid;grid-template-columns:28px 1.1fr 1.5fr .95fr .95fr;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid #f4f4f4}
+.mat-act-row .ma-cb-cell{text-align:center;line-height:0}
+.mat-act-row input[type=checkbox]{width:auto;height:auto;padding:0;margin:0;border:none;box-shadow:none;cursor:pointer;accent-color:#1a73e8}
 .mat-act-row:last-child{border-bottom:none}
 .mat-act-row.head{font-size:12px;color:#666;font-weight:600;position:sticky;top:0;background:#fff;z-index:1;border-bottom:1px solid #e8eaed}
 .mat-act-row input{box-sizing:border-box;width:100%;font-size:12px;padding:6px 7px;border:1px solid #dadce0;border-radius:6px;background:#fff;font-family:inherit}
@@ -437,6 +448,7 @@ iframe[id^="sb__open-sandbox"]{display:none!important}
 
 <div class="tabs">
   <div class="tab active" data-page="import" data-lk="tabImport">物流管理</div>
+  <div class="tab" data-page="query" data-lk="tabQuery">物流查询</div>
   <div class="tab" data-page="dashboard" data-lk="tabDashboard">月度活动汇总</div>
   <div class="tab" data-page="contacts" data-lk="tabContacts">门店信息</div>
   <!-- 定位收敛（2026-10-20）：物料分配页下架（不是同一件事，是被顺手塞进来的另一个业务）。
@@ -585,7 +597,9 @@ iframe[id^="sb__open-sandbox"]{display:none!important}
   <!-- ========== 联系人 ========== -->
   <div class="page" id="page-contacts">
     <div class="toolbar">
-      <button class="btn btn-primary" data-lk="btnAddRow" onclick="addContactRow()">+ 新增行</button>
+      <button class="btn btn-primary" data-lk="btnImportContacts" title="从 Excel/CSV 批量新增门店：按表头识别门店代码/名称/市/区/小区区域/门店状态/二级渠道/收货人/收货号码/收货地址，库里已有的门店代码会跳过" onclick="document.getElementById('cBulkFile').click()">批量导入</button>
+      <input type="file" accept=".xlsx,.xls,.csv" id="cBulkFile" style="display:none">
+      <button class="btn btn-outline" data-lk="btnDelRows" title="删除表格里勾选的门店行（会先让你确认）" onclick="deleteContactRows()">删除选中行</button>
       <button class="btn btn-success" data-lk="btnExportContacts" onclick="exportContacts()">导出</button>
       <input type="file" accept=".xlsx,.xls,.csv" id="cConfirmFile" style="display:none">
       <button class="btn btn-outline" data-lk="btnImportConfirm" title="导入店长确认过的门店信息表：门店代码/收货人/电话/地址的变动逐条核对后写入（旧值入历史），没匹配到门店的行会作为新门店新增" onclick="document.getElementById('cConfirmFile').click()">门店信息比对更新</button>
@@ -597,6 +611,7 @@ iframe[id^="sb__open-sandbox"]{display:none!important}
       <table>
         <thead>
             <tr id="contactHead">
+            <th class="cb-col"><input type="checkbox" id="cCheckAll" onchange="cToggleCheckAll(this.checked)" title="全选/取消全选本页"></th>
             <th data-c="0" onclick="cSelColumn(event,0)">门店代码</th>
             <th data-c="1" onclick="cSelColumn(event,1)">门店名称</th>
             <th data-c="2" onclick="cSelColumn(event,2)">市</th>
@@ -616,6 +631,28 @@ iframe[id^="sb__open-sandbox"]{display:none!important}
     </div>
     <datalist id="cStatusOpts"><option>营业中</option><option>装修中</option><option>暂停营业</option><option>已关闭</option></datalist>
     <datalist id="cChannelOpts"><option>直营</option><option>授权店</option><option>加盟</option><option>合作</option></datalist>
+  </div>
+
+  <!-- ========== 物流查询（店长自查） ========== -->
+  <div class="page" id="page-query">
+    <div class="toolbar" style="flex-wrap:wrap;gap:10px">
+      <h3 style="margin-right:auto;font-size:15px" data-lk="queryTitle">店长自查 · 物流查询</h3>
+    </div>
+    <p class="hint" style="margin:0 0 12px" data-lk="queryHintTop">输入【收件手机号】就能查到你名下所有物料的物流单号、件数和所属活动。手机号填不全没关系，后 4 位也能查。记不住手机号就直接输【姓名】或【门店名称】。</p>
+    <div class="toolbar" style="flex-wrap:wrap;gap:10px">
+      <input type="text" class="search-box" id="qKey" style="min-width:320px;max-width:520px"
+             placeholder="收件手机号 / 姓名 / 门店名称"
+             onkeydown="if(event.key==='Enter')queryTrack()">
+      <button class="btn btn-primary" data-lk="btnQueryGo" onclick="queryTrack()">查询</button>
+      <button class="btn btn-gray" data-lk="btnQueryClear" onclick="queryClear()">清空</button>
+    </div>
+    <div class="q-stat" id="qStat" data-lk="queryHint">输入手机号就能查到你名下所有物流单号</div>
+
+    <div id="qBox" style="display:none">
+      <div class="tbl-img-bar"><button class="btn btn-gray btn-sm" onclick="copyTableAsImage('qResult',this)">复制为图片</button></div>
+      <div class="cross-table" id="qResult"></div>
+    </div>
+    <div class="empty" id="qEmpty" style="display:none"></div>
   </div>
 
   <!-- ========== 物料分配 ========== -->
@@ -772,7 +809,7 @@ iframe[id^="sb__open-sandbox"]{display:none!important}
 <div class="modal-overlay" id="matActModal">
   <div class="modal" style="width:min(680px,96vw);max-width:680px">
     <h3 data-lk="matActTitle">给每个物料设置所属活动</h3>
-    <p class="hint" style="margin-bottom:12px" data-lk="matActHint">上传的表格里有下面这些物料名称。为每个物料选择或新建活动（新活动要填起止日期），导入后会自动给对应行打上活动标签，不用再逐行手选。</p>
+    <p class="hint" style="margin-bottom:12px" data-lk="matActHint">上传的表格里有下面这些物料名称。为每个物料选择或新建活动（新活动要填起止日期），导入后会自动给对应行打上活动标签。一张物流单里混着多个活动的物料时：勾选属于同一活动的物料 → 上面「统一设置」填好活动和起止日期 → 点「应用到勾选」，按活动一批一批填，不用逐个改。</p>
     <div class="mat-act-batch">
       <span class="lab" data-lk="maBatchLab">统一设置：</span>
       <input type="text" id="maBatchAct" placeholder="选择已有活动或输入新名称" autocomplete="off" list="matActOpts" onchange="matActActPicked(-1,this.value,'batch')">
@@ -780,6 +817,10 @@ iframe[id^="sb__open-sandbox"]{display:none!important}
       <span class="sep">至</span>
       <input type="date" id="maBatchEnd" title="结束日期">
       <button class="btn btn-primary btn-sm" onclick="matActBatchFill()" data-lk="maBatchBtn">填入全部</button>
+      <button class="btn btn-success btn-sm" onclick="matActApplyToSel()" data-lk="maApplySelBtn" title="只把上面填的活动/日期打到左边勾选的物料上 —— 一张物流单里有多个活动时，按活动勾一批填一次">应用到勾选</button>
+      <button class="btn btn-gray btn-sm" onclick="matActSelAll(true)" data-lk="maSelAllBtn">全选</button>
+      <button class="btn btn-gray btn-sm" onclick="matActSelAll(false)" data-lk="maSelNoneBtn">清空</button>
+      <span id="maSelCount" style="margin-left:auto;color:#1a73e8;font-weight:600"></span>
     </div>
     <div class="mat-act-list" id="matActList"></div>
     <datalist id="matActOpts"></datalist>
@@ -1261,6 +1302,7 @@ function switchTab(name){
   }
   else if(name==='dashboard')renderDashboard();
   else if(name==='contacts')renderContacts();
+  else if(name==='query'){const k=document.getElementById('qKey');if(k)k.focus()}
   else if(name==='alloc')renderAlloc();
 }
 document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>switchTab(t.dataset.page)));
@@ -1323,7 +1365,7 @@ function renderContacts(){
   const slice=list.slice(start,start+cPageSize);
 
   if(!total){
-    body.innerHTML='<tr><td colspan="11"><div class="empty">暂无联系人，点击"新增行"添加</div></td></tr>';
+    body.innerHTML='<tr><td colspan="12"><div class="empty">暂无联系人，点「批量导入」导入门店数据</div></td></tr>';
     document.getElementById('contactPager').innerHTML='';
     cList=[];
     return;
@@ -1340,6 +1382,7 @@ function renderContacts(){
     const histCell=hcn?`<td class="ch-col"><button class="ch-link" title="有 ${hcn} 条信息变更历史（点击查看）" onclick="event.stopPropagation();openChHistory('${String(r.storeCode).replace(/['"\\]/g,'')}')">${Math.min(hcn,99)} 条</button></td>`:`<td class="ch-col"></td>`;
     const codeCell=`<td data-c="0"><input data-f="storeCode" value="${esc(r.storeCode)}" placeholder="代码"></td>`;
     return `<tr data-id="${esc(r.id||'')}" data-vr="${vr}">
+      <td class="cb-col"><input type="checkbox" class="c-cb" data-id="${esc(r.id||'')}" onclick="cSyncCheckAll()"></td>
       ${codeCell}
       ${cell('storeName',r.storeName,'门店名称')}
       ${cell('city',r.city,'市')}
@@ -1572,6 +1615,152 @@ function addContactRow(){
   cFilter='';document.getElementById('contactSearch').value='';
   const pages=Math.ceil(c.length/cPageSize);
   cPage=pages;renderContacts();
+}
+
+// ---------- 门店信息：勾选 / 删除选中行 ----------
+function cToggleCheckAll(checked){document.querySelectorAll('#contactBody .c-cb').forEach(cb=>cb.checked=checked)}
+function cSyncCheckAll(){
+  const all=document.querySelectorAll('#contactBody .c-cb');
+  const n=document.querySelectorAll('#contactBody .c-cb:checked').length;
+  const ca=document.getElementById('cCheckAll');
+  if(ca)ca.checked=all.length>0&&n===all.length;
+}
+function deleteContactRows(){
+  const ids=[...document.querySelectorAll('#contactBody .c-cb:checked')].map(cb=>String(cb.dataset.id||''));
+  if(!ids.length){flashTip('请先勾选要删除的行',1800);return}
+  if(!confirm('确定删除勾选的 '+ids.length+' 家门店？\n\n删除后不可恢复。如果只是想留底，请先点「导出」保存一份再删。'))return;
+  const before=DB.contacts.length;
+  DB.contacts=DB.contacts.filter(r=>ids.indexOf(String(r.id||''))<0);
+  const n=before-DB.contacts.length;
+  addLog('门店信息删除 '+n+' 条');
+  renderContacts();
+  flashTip('✓ 已删除 '+n+' 家门店',2000);
+}
+
+// ---------- 门店信息：批量导入（只新增，代码已存在的跳过）----------
+const CB_ALIAS={
+  storeCode:['门店代码','门店编码'],
+  storeName:['门店名称','门店名'],
+  city:['城市','市'],
+  district:['区县','区域','区'],
+  area:['小区/区域','小区区域','小区'],
+  status:['门店状态','状态'],
+  channel:['二级渠道','渠道'],
+  recipient:['收货人','收件人','收方姓名','收件人姓名','联系人','姓名'],
+  phone:['收货号码','收货手机','收货电话','收件电话','收件人手机','收方手机','联系电话','手机号','手机','电话','号码'],
+  address:['收货地址','收件地址','收件方地址','地址']
+};
+function cbMapHeaders(hdr){
+  const H=hdr.map(h=>String(h||'').replace(/\s+/g,'').trim());
+  const map={};
+  // 第一遍：整串完全相等（最可靠）。
+  // 单字/双字别名（市、区、状态、渠道、手机号、电话、号码、姓名、地址…）只走这一遍，
+  // 防止「市场活动」被当成「市」、「区域对比」被当成「区」。
+  H.forEach((t,i)=>{
+    if(!t)return;
+    for(const f in CB_ALIAS){
+      if(map[f]!==undefined)continue;
+      if(CB_ALIAS[f].indexOf(t)>=0){map[f]=i;return}
+    }
+  });
+  // 第二遍：前后缀关系，只认 3 字以上的别名。
+  // 含「寄件/发件」的表头一律跳过 —— 表里同时有寄件方和收件方时，宁可不认，
+  // 也不能把寄件人的地址电话当成收件人的（这是踩过的坑）。
+  ['area','district','city','storeCode','storeName','status','channel','recipient','phone','address'].forEach(f=>{
+    if(map[f]!==undefined)return;
+    for(const a of CB_ALIAS[f]){
+      if(a.length<=2)continue;
+      const i=H.findIndex(t=>t&&t.indexOf('寄件')<0&&t.indexOf('发件')<0&&(t.endsWith(a)||t.startsWith(a)));
+      if(i>=0){map[f]=i;return}
+    }
+  });
+  return map;
+}
+function importContactsBulk(matrix,srcName){
+  const map=cbMapHeaders(matrix[0]||[]);
+  if(map.storeCode===undefined&&map.storeName===undefined){
+    alert('表头里没有「门店代码」/「门店名称」列，认不出要导入哪些字段。\n\n支持的表头：门店代码、门店名称、市、区、小区/区域、门店状态、二级渠道、收货人、收货号码、收货地址');
+    return;
+  }
+  const get=(row,f)=>map[f]===undefined?'':String(row[map[f]]==null?'':row[map[f]]).trim();
+  const have={};DB.contacts.forEach(r=>{const k=cleanStr(r.storeCode).toUpperCase();if(k)have[k]=1});
+  const list=DB.contacts.slice();
+  let added=0,skipped=0;
+  for(let i=1;i<matrix.length;i++){
+    const row=matrix[i];if(!row)continue;
+    const code=get(row,'storeCode'),name=get(row,'storeName');
+    if(!code&&!name)continue;
+    const key=code?cleanStr(code).toUpperCase():'';
+    if(key&&have[key]){skipped++;continue}
+    if(key)have[key]=1;
+    list.push({id:uid(),storeCode:code,storeName:name,city:get(row,'city'),district:get(row,'district'),
+      area:get(row,'area'),status:get(row,'status')||'营业中',channel:get(row,'channel'),
+      recipient:get(row,'recipient'),phone:get(row,'phone'),address:get(row,'address')});
+    added++;
+  }
+  if(!added){flashTip(skipped?('没有新增的门店（'+skipped+' 条门店代码已存在）'):'表里没有可导入的行',2800);return}
+  DB.contacts=list;
+  const cs=document.getElementById('contactSearch');if(cs){cFilter='';cs.value=''}
+  const pages=Math.max(1,Math.ceil(list.length/cPageSize));
+  cPage=pages;renderContacts();
+  addLog('批量导入门店「'+srcName+'」：新增 '+added+' 家'+(skipped?'，跳过 '+skipped+' 家（代码已存在）':''));
+  flashTip('✓ 新增 '+added+' 家门店'+(skipped?'，跳过 '+skipped+' 家（代码已存在）':''),3000);
+}
+document.getElementById('cBulkFile').addEventListener('change',function(e){
+  const file=e.target.files[0];if(!file)return;
+  if(typeof XLSX==='undefined'){alert('Excel 解析库未加载，请联网后刷新页面重试');e.target.value='';return}
+  const reader=new FileReader();
+  reader.onload=function(ev){
+    try{
+      const wb=XLSX.read(ev.target.result,{type:'array'});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const matrix=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+      importContactsBulk(matrix,file.name);
+    }catch(err){alert('解析失败：'+err.message)}
+  };
+  reader.readAsArrayBuffer(file);e.target.value='';
+});
+
+// ==================== 物流查询（店长自查） ====================
+// 只读查询：跨所有物流单，按手机号/姓名/门店名模糊匹配，返回全部运单号
+function queryClear(){
+  const k=document.getElementById('qKey');if(k)k.value='';
+  const s=document.getElementById('qStat');
+  if(s)s.textContent='输入手机号就能查到你名下所有物流单号';
+  const b=document.getElementById('qBox');if(b)b.style.display='none';
+  const e=document.getElementById('qEmpty');if(e)e.style.display='none';
+}
+function queryTrack(){
+  const k=String((document.getElementById('qKey')||{}).value||'').replace(/[\s\-]/g,'');
+  const stat=document.getElementById('qStat'),box=document.getElementById('qBox'),empty=document.getElementById('qEmpty');
+  if(!k){flashTip('请先输入手机号（或姓名/门店名称）',1800);return}
+  const kw=k.toLowerCase();
+  const hits=[];
+  (DB.orders||[]).forEach(o=>{
+    (o.rows||[]).forEach(r=>{
+      const ph=String(phoneOrStore(r)||''),raw=String(r.phone||''),
+            nm=String(r.name||''),st=String(r.matchedStore||'');
+      const hit=ph.toLowerCase().indexOf(kw)>=0||raw.toLowerCase().indexOf(kw)>=0||
+                nm.toLowerCase().indexOf(kw)>=0||st.toLowerCase().indexOf(kw)>=0;
+      if(!hit)return;
+      hits.push({t:String(r.tracking||''),p:String(r.productName||''),q:r.qty,s:st,a:String(r.activity||'')});
+    });
+  });
+  if(!hits.length){
+    if(box)box.style.display='none';
+    if(empty){empty.style.display='';empty.innerHTML='没查到「<b>'+esc(k)+'</b>」的物流记录。<br><span style="font-size:12px;color:#999">确认下手机号是不是收件人填的那个；也可以直接输入姓名或门店名称试试。</span>'}
+    if(stat)stat.textContent='';
+    return;
+  }
+  hits.sort((x,y)=>String(x.t).localeCompare(String(y.t)));
+  const tracks={};hits.forEach(x=>{if(x.t)tracks[x.t]=1});
+  let qty=0;hits.forEach(x=>{const n=parseFloat(x.q);if(isFinite(n))qty+=n});
+  if(stat)stat.innerHTML='「<b>'+esc(k)+'</b>」共 <b>'+Object.keys(tracks).length+'</b> 个运单 · <b>'+hits.length+'</b> 行物料 · <b>'+fmtNum(qty)+'</b> 件';
+  const rows=hits.map(x=>'<tr><td class="q-track">'+esc(x.t)+'</td><td>'+esc(x.p)+'</td><td class="q-num">'+esc(x.q==null?'':x.q)+'</td><td>'+esc(x.s)+'</td><td>'+esc(x.a)+'</td></tr>').join('');
+  const host=document.getElementById('qResult');
+  if(host)host.innerHTML='<table class="q-table"><thead><tr><th>运单号</th><th>物料名称</th><th>数量</th><th>匹配门店</th><th>礼品所属活动</th></tr></thead><tbody>'+rows+'</tbody></table>';
+  if(box)box.style.display='';
+  if(empty)empty.style.display='none';
 }
 
 document.getElementById('contactSearch').addEventListener('input',e=>cDebounce(e.target.value));
@@ -2187,8 +2376,14 @@ const LABEL_DEFS=[
   ['appName','系统标题','市场物料到店管理系统'],
   ['pageTitle','物流页标题','物流单号上传'],
   ['tabImport','「物流管理」标签页','物流管理'],
+  ['tabQuery','「物流查询」标签页','物流查询'],
   ['tabDashboard','「月度活动汇总」标签页','月度活动汇总'],
   ['tabContacts','「门店信息」标签页','门店信息'],
+  ['queryTitle','物流查询页标题','店长自查 · 物流查询'],
+  ['queryHintTop','物流查询页说明','输入【收件手机号】就能查到你名下所有物料的物流单号、件数和所属活动。手机号填不全没关系，后 4 位也能查。记不住手机号就直接输【姓名】或【门店名称】。'],
+  ['queryHint','物流查询页默认提示','输入手机号就能查到你名下所有物流单号'],
+  ['btnQueryGo','物流查询页「查询」按钮','查询'],
+  ['btnQueryClear','物流查询页「清空」按钮','清空'],
   ['btnSettings','「设置」按钮','设置'],
   ['btnExportCsv','「下载CSV」按钮','下载CSV'],
   ['btnClearOrder','「清空当前单数据」按钮','清空当前单数据'],
@@ -2204,11 +2399,14 @@ const LABEL_DEFS=[
   ['timeModalHint','订单备注弹窗说明','填写物料订单说明，如：十一活动汇总'],
   ['orderNoteLabel','订单说明输入框标签','订单说明'],
   ['matActTitle','按物料设置活动·弹窗标题','给每个物料设置所属活动'],
-  ['matActHint','按物料设置活动·弹窗说明','上传的表格里有下面这些物料名称。为每个物料选择或新建活动（新活动要填起止日期），导入后会自动给对应行打上活动标签，不用再逐行手选。'],
+  ['matActHint','按物料设置活动·弹窗说明','上传的表格里有下面这些物料名称。为每个物料选择或新建活动（新活动要填起止日期），导入后会自动给对应行打上活动标签。一张物流单里混着多个活动的物料时：勾选属于同一活动的物料 → 上面「统一设置」填好活动和起止日期 → 点「应用到勾选」，按活动一批一批填，不用逐个改。'],
   ['matActApplyBtn','按物料设置活动·应用按钮','应用活动标签'],
   ['matActSkipBtn','按物料设置活动·跳过按钮','暂不设置'],
   ['maBatchLab','按物料设置活动·统一设置标签','统一设置：'],
   ['maBatchBtn','按物料设置活动·填入全部按钮','填入全部'],
+  ['maApplySelBtn','按物料设置活动·应用到勾选按钮','应用到勾选'],
+  ['maSelAllBtn','按物料设置活动·全选按钮','全选'],
+  ['maSelNoneBtn','按物料设置活动·清空按钮','清空'],
   ['btnViewHistory','门店信息·历史记录按钮','历史记录'],
   ['chRepTitle','门店信息更新检测·结果标题','门店信息更新检测结果'],
   ['chRepClose','门店信息更新检测·关闭按钮','关闭'],
@@ -2237,7 +2435,8 @@ const LABEL_DEFS=[
   ['statGiftTotal','「礼品发放总数」指标名','礼品发放总数'],
   ['matDetailTitle','「物料明细」表标题','物料明细'],
   ['matDetailHint','「物料明细」说明','礼品发放数只统计实物礼品，活动物料不计入'],
-  ['btnAddRow','「新增行」按钮','+ 新增行'],
+  ['btnImportContacts','门店页「批量导入」按钮','批量导入'],
+  ['btnDelRows','门店页「删除选中行」按钮','删除选中行'],
   ['btnExportContacts','门店页「导出」按钮','导出'],
   ['btnImportConfirm','门店页「门店信息比对更新」按钮','门店信息比对更新'],
   ['btnActRecords','物流页「活动记录」按钮','活动记录'],
@@ -2610,18 +2809,49 @@ function matActActPicked(i,val,scope){
   }
 }
 function renderMatActList(){
+  const keep=[...document.querySelectorAll('#matActList .ma-cb:checked')].map(cb=>parseInt(cb.dataset.i,10));
   const opts=DB.activities.map(a=>`<option value="${esc(a.name)}"></option>`).join('');
   const dl=document.getElementById('matActOpts');
   if(dl)dl.innerHTML=opts;
   const el=document.getElementById('matActList');
   if(!el)return;
-  el.innerHTML='<div class="mat-act-row head"><span>物料名称</span><span>所属活动（选已有或输入新名称）</span><span>开始日期</span><span>结束日期</span></div>'+
+  el.innerHTML='<div class="mat-act-row head"><span class="ma-cb-cell"><input type="checkbox" class="ma-cb-h" onclick="matActSelAll(this.checked)" title="全选/取消全选"></span><span>物料名称</span><span>所属活动（选已有或输入新名称）</span><span>开始日期</span><span>结束日期</span></div>'+
     matActRows.map((x,i)=>`<div class="mat-act-row" data-r="${i}">
+      <span class="ma-cb-cell"><input type="checkbox" class="ma-cb" data-i="${i}" onclick="matActSelCount()"></span>
       <span class="ma-name" title="${esc(x.name)}">${esc(x.name)}${x.existing?'<i class="new">同名活动</i>':''}</span>
       <input type="text" data-i="${i}" data-k="act" value="${esc(x.act)}" placeholder="选择已有活动或输入新名称" autocomplete="off" list="matActOpts" onchange="matActActPicked(${i},this.value,'row')">
       <input type="date" data-i="${i}" data-k="start" value="${esc(x.start)}">
       <input type="date" data-i="${i}" data-k="end" value="${esc(x.end)}">
     </div>`).join('');
+  if(keep.length)document.querySelectorAll('#matActList .ma-cb').forEach(cb=>{if(keep.indexOf(parseInt(cb.dataset.i,10))>=0)cb.checked=true});
+  matActSelCount();
+}
+// 勾选分组：一张物流单里混着多个活动的物料时，按活动勾一批 → 填一次 → 应用到勾选
+function matActSelAll(v){
+  document.querySelectorAll('#matActList .ma-cb').forEach(cb=>cb.checked=!!v);
+  matActSelCount();
+}
+function matActSelCount(){
+  const all=document.querySelectorAll('#matActList .ma-cb');
+  const n=document.querySelectorAll('#matActList .ma-cb:checked').length;
+  const el=document.getElementById('maSelCount');
+  if(el)el.textContent=n?('已勾选 '+n+' / '+matActRows.length):'';
+  const h=document.querySelector('#matActList .ma-cb-h');
+  if(h)h.checked=all.length>0&&n===all.length;
+}
+function matActApplyToSel(){
+  const idx=[...document.querySelectorAll('#matActList .ma-cb:checked')].map(cb=>parseInt(cb.dataset.i,10));
+  if(!idx.length){flashTip('请先在左边勾选要设置的物料',2000);return}
+  const act=String((document.getElementById('maBatchAct')||{}).value||'').trim();
+  if(!act){flashTip('请先在「统一设置」里填活动名称',1800);return}
+  const s=String((document.getElementById('maBatchStart')||{}).value||'');
+  const e=String((document.getElementById('maBatchEnd')||{}).value||'');
+  const exists=DB.activities.some(a=>a.name===act);
+  if(!exists&&(!s||!e)){flashTip('「'+act+'」是新活动，开始/结束日期要填好',2200);return}
+  if(s&&e&&s>e){flashTip('开始日期不能晚于结束日期',1800);return}
+  idx.forEach(i=>{if(matActRows[i]){matActRows[i].act=act;if(s)matActRows[i].start=s;if(e)matActRows[i].end=e}});
+  renderMatActList();
+  flashTip('✓ 已把「'+act+'」填入勾选的 '+idx.length+' 个物料',1800);
 }
 function applyMatAct(){
   const acts=DB.activities.slice();
@@ -4496,6 +4726,19 @@ function renderAlloc(){
 const COLW_MIN=16;
 const COLW_TABLES=['alloc','preview','contact','mat','dashSum','dashCross','dashMat','chHist'];
 // 每张表的默认列宽（首次渲染时按内容实测，缓存；用户没拖过的列用它）
+// 2026-10-26：门店信息表加了行首复选框列，已存的列宽索引整体后移 1 位。
+// 标记放在 localStorage（不进备份/云同步结构），只迁一次。
+try{
+  if(!localStorage.getItem('lg2_colw_shift_contact')){
+    const all=DB.colw||{};
+    const m=all['contact'];
+    if(m&&typeof m==='object'){
+      const out={};Object.keys(m).forEach(k=>{const n=parseInt(k,10);if(!isNaN(n))out[n+1]=m[k]});
+      all['contact']=out;DB.colw=all;
+    }
+    localStorage.setItem('lg2_colw_shift_contact','1');
+  }
+}catch(e){}
 const colwDefaults={};
 function colwGet(t){
   const all=DB.colw||{};
